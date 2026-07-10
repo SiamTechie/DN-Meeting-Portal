@@ -1,0 +1,6 @@
+{
+  "name": "DN Center Room Booking System",
+  "description": "An elegant and fully functional room booking system dashboard with live room listings, interactive schedules, instant bookings, kiosk display, and admin analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

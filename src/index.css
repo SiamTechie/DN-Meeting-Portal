@@ -1,0 +1,108 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700;850;900&family=Roboto:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Noto Sans Thai", "Roboto", sans-serif;
+  --font-display: "Noto Sans Thai", "Roboto", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-primary: #6310a3;
+  --color-primary-container: #f3e8ff;
+  --color-on-primary-container: #2c004d;
+  --color-secondary-container: #faf5ff;
+  --color-on-secondary-container: #6310a3;
+  --color-secondary: #a884c4;
+  --color-surface-container-low: #fdfdfd;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-high: #e7e5e4;
+  --color-outline-variant: #e7e5e4;
+  --color-on-surface-variant: #78716c;
+  --color-on-surface: #1c1917;
+  --color-background: #F5F5F4;
+  --color-surface: #ffffff;
+  --color-error: #ef4444;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
+  -webkit-font-smoothing: antialiased;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(99, 16, 163, 0.1);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 16, 163, 0.25);
+}
+
+/* Crisp Clean Light Card Overrides */
+.bg-white,
+.bg-surface,
+.bg-\[\#FAF9FC\],
+.bg-\[\#FCFCFF\] {
+  background-color: #ffffff !important;
+  border-color: #e7e5e4 !important;
+  color: #1c1917 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Clean panel borders and headers */
+.border-outline-variant,
+.border-outline-variant\/80,
+.border-outline-variant\/60,
+.border-outline-variant\/40 {
+  border-color: #e7e5e4 !important;
+}
+
+/* Inputs styling inside cards */
+input[type="text"],
+input[type="date"],
+input[type="time"],
+select {
+  background-color: #ffffff !important;
+  border: 1px solid #d6d3d1 !important;
+  color: #1c1917 !important;
+}
+
+input[type="text"]:focus,
+input[type="date"]:focus,
+input[type="time"]:focus,
+select:focus {
+  border-color: #6310a3 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(99, 16, 163, 0.15) !important;
+}
+
+/* Fix option elements in dropdowns */
+select option {
+  background-color: #ffffff !important;
+  color: #1c1917 !important;
+}
+
+/* Fix text colors inside overridden blocks */
+.text-on-surface-variant {
+  color: #78716c !important;
+}
+
+.text-primary {
+  color: #6310a3 !important;
+}
+
+/* Custom class for additional frosted cards */
+.frosted-glass {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
