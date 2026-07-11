@@ -1,10 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700;850;900&family=Roboto:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700;850;900&family=Roboto:wght@300;400;500;700;900&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Noto Sans Thai", "Roboto", sans-serif;
   --font-display: "Noto Sans Thai", "Roboto", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  --font-mono: "Roboto", monospace;
   
   --color-primary: #6310a3;
   --color-primary-container: #f3e8ff;
