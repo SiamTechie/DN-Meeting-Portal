@@ -16,7 +16,7 @@ export const translations = {
     
     // Dashboard
     dbTitle: "ภาพรวมตารางการจอง",
-    dbTodayBtn: "วันนี้ (เวลาจำลอง)",
+    dbTodayBtn: "วันนี้",
     dbFilterRoom: "กรองตามห้อง:",
     dbAllRooms: "ทุกห้อง",
     dbTime: "เวลา",
@@ -144,8 +144,8 @@ export const translations = {
     logout: "Log Out",
     
     // Dashboard
-    dbTitle: "Bilingual Overview",
-    dbTodayBtn: "Today (Simulated)",
+    dbTitle: "Booking Overview",
+    dbTodayBtn: "Today",
     dbFilterRoom: "Filter Room:",
     dbAllRooms: "All Rooms",
     dbTime: "Time",

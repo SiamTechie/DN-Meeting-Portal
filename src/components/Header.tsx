@@ -1,7 +1,8 @@
-import React from "react";
-import { Search, Bell, HelpCircle, LogIn, LogOut } from "lucide-react";
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import { Search, Bell, HelpCircle, LogIn, LogOut, Settings } from "lucide-react";
 import { Language, translations } from "../locales";
-import { User } from "../types";
+import { User, Booking } from "../types";
 import { logoutUser } from "../services/auth";
 
 interface HeaderProps {
@@ -12,10 +13,49 @@ interface HeaderProps {
   setLang: (lang: Language) => void;
   currentUser?: User | null;
   onLoginClick?: () => void;
+  bookings?: Booking[];
+  activeTab?: string;
 }
 
-export default function Header({ searchQuery, setSearchQuery, title, lang, setLang, currentUser, onLoginClick }: HeaderProps) {
+export default function Header({ searchQuery, setSearchQuery, title, lang, setLang, currentUser, onLoginClick, bookings = [], activeTab = "" }: HeaderProps) {
   const t = (key: keyof typeof translations.th) => translations[lang][key] || key;
+
+  const [lastViewedAt, setLastViewedAt] = useState<number>(() => {
+    return parseInt(localStorage.getItem("dn_last_viewed_notifications") || "0", 10);
+  });
+
+  const latestBookingTime = bookings.reduce((max, b) => {
+    if (!b.createdAt) return max;
+    const time = new Date(b.createdAt).getTime();
+    return time > max ? time : max;
+  }, 0);
+
+  const hasNewBookings = latestBookingTime > lastViewedAt;
+
+  const handleNotificationClick = () => {
+    const now = Date.now();
+    setLastViewedAt(now);
+    localStorage.setItem("dn_last_viewed_notifications", now.toString());
+  };
+
+  const getHelpContent = () => {
+    switch(activeTab) {
+      case "dashboard":
+        return lang === "th" ? "หน้านี้แสดงภาพรวมของการจองห้องประชุมทั้งหมด คุณสามารถดูตารางเวลาและเลือกจองห้องได้อย่างรวดเร็ว" : "This page shows an overview of all room bookings. You can view schedules and quickly book a room.";
+      case "room-list":
+        return lang === "th" ? "ค้นหาและเรียกดูห้องประชุมทั้งหมด พร้อมดูรายละเอียดและสิ่งอำนวยความสะดวกของแต่ละห้อง" : "Search and browse all meeting rooms, view their details and available amenities.";
+      case "room-detail":
+        return lang === "th" ? "ดูรายละเอียดเชิงลึกของห้องประชุมที่เลือก รวมถึงปฏิทินการจองเฉพาะห้องนี้" : "View in-depth details of the selected room, including its specific booking calendar.";
+      case "booking-form":
+        return lang === "th" ? "กรอกข้อมูลเพื่อทำการจองห้องประชุม ระบุเวลา ผู้เข้าร่วม และรายละเอียดการประชุม" : "Fill in the details to book a meeting room. Specify time, attendees, and meeting specifics.";
+      case "my-bookings":
+        return lang === "th" ? "จัดการรายการจองของคุณ ดูสถานะ หรือยกเลิกการจองได้ที่นี่" : "Manage your bookings. View status, or cancel your reservations here.";
+      case "admin":
+        return lang === "th" ? "หน้าสำหรับผู้ดูแลระบบ เพื่อจัดการห้องประชุม ผู้ใช้งาน และข้อมูลภาพรวมของระบบ" : "Admin panel for managing rooms, users, and overall system data.";
+      default:
+        return lang === "th" ? "คู่มือการใช้งานหน้านี้" : "Page user guide.";
+    }
+  };
 
   return (
     <header className="sticky top-0 z-30 flex justify-between items-center px-6 py-4 border-b border-outline-variant bg-surface/85 backdrop-blur-md select-none">
@@ -60,14 +100,28 @@ export default function Header({ searchQuery, setSearchQuery, title, lang, setLa
           </button>
         </div>
 
-        <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-variant/40 text-on-surface-variant relative transition-colors cursor-pointer">
+        <button 
+          onClick={handleNotificationClick}
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-variant/40 text-on-surface-variant relative transition-colors cursor-pointer"
+        >
           <Bell className="w-5 h-5" />
-          <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-error rounded-full ring-2 ring-surface"></span>
+          {hasNewBookings && (
+            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-error rounded-full ring-2 ring-surface"></span>
+          )}
         </button>
 
-        <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-variant/40 text-on-surface-variant transition-colors cursor-pointer">
-          <HelpCircle className="w-5 h-5" />
-        </button>
+        <div className="relative group/help">
+          <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-variant/40 text-on-surface-variant transition-colors cursor-pointer">
+            <HelpCircle className="w-5 h-5" />
+          </button>
+          
+          <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-outline-variant rounded-xl shadow-lg opacity-0 invisible group-hover/help:opacity-100 group-hover/help:visible transition-all p-4 z-50">
+            <h4 className="font-bold text-on-surface text-sm mb-1">{lang === "th" ? "คู่มือการใช้งาน" : "Help Guide"}</h4>
+            <p className="text-xs text-on-surface-variant leading-relaxed">
+              {getHelpContent()}
+            </p>
+          </div>
+        </div>
 
         <div className="h-6 w-px bg-outline-variant/60 mx-1"></div>
 
@@ -88,9 +142,16 @@ export default function Header({ searchQuery, setSearchQuery, title, lang, setLa
               </div>
               
               <div className="absolute right-0 top-full mt-2 w-40 bg-white border border-outline-variant rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                <Link 
+                  to="/profile"
+                  className="w-full text-left px-4 py-3 text-sm text-on-surface hover:bg-surface-container-high rounded-t-xl flex items-center gap-2 cursor-pointer border-b border-outline-variant/30"
+                >
+                  <Settings className="w-4 h-4 text-on-surface-variant" />
+                  {lang === "th" ? "จัดการบัญชี" : "Profile"}
+                </Link>
                 <button 
                   onClick={() => logoutUser()}
-                  className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 rounded-xl flex items-center gap-2 cursor-pointer"
+                  className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 rounded-b-xl flex items-center gap-2 cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
                   {lang === "th" ? "ออกจากระบบ" : "Sign Out"}

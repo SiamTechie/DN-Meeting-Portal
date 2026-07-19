@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { ViewTab, User } from "../types";
 import { LayoutDashboard, CalendarDays, BookMarked, ShieldCheck, Plus, MonitorPlay, Settings, LogOut } from "lucide-react";
 import { Language, translations } from "../locales";
@@ -70,24 +71,24 @@ export default function Sidebar({ activeTab, setActiveTab, onNewBookingClick, la
           </button>
 
           {currentUser && (
-            <div className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-surface-container-high transition-colors">
+            <Link to="/profile" className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer group">
               <img
-                className="w-10 h-10 rounded-full border border-outline-variant object-cover shadow-xs"
+                className="w-10 h-10 rounded-full border border-outline-variant object-cover shadow-xs group-hover:border-primary transition-colors"
                 alt={currentUser.name}
                 src={currentUser.avatarUrl}
               />
               <div className="overflow-hidden flex-grow select-none">
-                <p className="text-xs font-bold font-display truncate text-on-surface">{currentUser.name}</p>
+                <p className="text-xs font-bold font-display truncate text-on-surface group-hover:text-primary transition-colors">{currentUser.name}</p>
                 <p className="text-[11px] text-on-surface-variant truncate">{currentUser.role}</p>
               </div>
               <button 
-                onClick={() => logoutUser()}
+                onClick={(e) => { e.preventDefault(); logoutUser(); }}
                 title="Sign out"
                 className="text-on-surface-variant hover:text-red-500 cursor-pointer p-1 rounded-lg"
               >
                 <LogOut className="w-4 h-4" />
               </button>
-            </div>
+            </Link>
           )}
         </div>
       </aside>

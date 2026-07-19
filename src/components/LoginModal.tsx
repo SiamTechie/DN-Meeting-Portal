@@ -156,7 +156,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, lang }: Lo
               </button>
             </form>
 
-            <div className="mt-6 text-center">
+            <div className="mt-6 flex flex-col items-center gap-3">
               <button
                 type="button"
                 onClick={() => setMode(mode === "login" ? "register" : "login")}
@@ -164,6 +164,19 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, lang }: Lo
               >
                 {t("Toggle")}
               </button>
+              
+              {mode === 'login' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    window.location.href = '/forgot-password';
+                  }}
+                  className="text-xs text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+                >
+                  ลืมรหัสผ่านใช่หรือไม่?
+                </button>
+              )}
             </div>
           </div>
         </motion.div>

@@ -226,6 +226,8 @@ export default function App() {
             setLang={handleSetLang}
             currentUser={currentUser}
             onLoginClick={() => setIsLoginOpen(true)}
+            bookings={bookings}
+            activeTab={activeTab}
           />
         )}
 

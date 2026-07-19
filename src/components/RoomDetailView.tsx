@@ -129,7 +129,7 @@ export default function RoomDetailView({ room, bookings, onBack, onBookClick, la
               </div>
 
               {/* Highlights Bento Box Row */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 border-t border-outline-variant/40 pt-6 select-none">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6 border-t border-outline-variant/40 pt-6 select-none">
                 <div className="flex flex-col items-center justify-center p-4 bg-surface-container rounded-xl border border-outline-variant/20">
                   <Users className="w-5 h-5 text-primary mb-1.5" />
                   <span className="font-sans font-bold text-xs text-on-surface text-center">
@@ -141,13 +141,6 @@ export default function RoomDetailView({ room, bookings, onBack, onBookClick, la
                   <Layers className="w-5 h-5 text-primary mb-1.5" />
                   <span className="font-sans font-bold text-xs text-on-surface text-center">
                     {t("rdFloor")} {room.floor.toString().padStart(2, "0")}
-                  </span>
-                </div>
-                
-                <div className="flex flex-col items-center justify-center p-4 bg-surface-container rounded-xl border border-outline-variant/20">
-                  <Maximize className="w-5 h-5 text-primary mb-1.5" />
-                  <span className="font-sans font-bold text-xs text-on-surface text-center">
-                    {room.sqft} {t("rdSqft")}
                   </span>
                 </div>
                 

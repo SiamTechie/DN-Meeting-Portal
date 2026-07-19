@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Room, Booking } from "../types";
 import { ChevronLeft, ChevronRight, Filter, TrendingUp, Users, Clock, Flame, CalendarRange, MapPin } from "lucide-react";
 import { Language, translations } from "../locales";
@@ -13,11 +13,18 @@ interface DashboardViewProps {
 }
 
 export default function DashboardView({ rooms, bookings, onRoomSelect, onInstantBook, lang }: DashboardViewProps) {
-  // Base date for navigation. We use 2024-10-24 as the default simulated current date
-  const [currentDate, setCurrentDate] = useState<Date>(new Date("2024-10-24"));
+  // Base date for navigation
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [activeSegment, setActiveSegment] = useState<"Day" | "Week" | "Month">("Week");
   
-  // Filtering for Week View (view bookings for all rooms, or one specific room)
+  // Real time tracker for the red line indicator
+  const [realNow, setRealNow] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setRealNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Filtering for Week View
   const [selectedFilterRoomId, setSelectedFilterRoomId] = useState<string>("all");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
@@ -84,7 +91,7 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
   };
 
   const handleToday = () => {
-    setCurrentDate(new Date("2024-10-24"));
+    setCurrentDate(new Date());
   };
 
   // Format header dates
@@ -93,16 +100,11 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
     if (activeSegment === "Day") {
       return currentDate.toLocaleDateString(lang === "th" ? "th-TH" : "en-US", { weekday: "long", ...options });
     } else if (activeSegment === "Week") {
-      // Find start of week (Monday)
       const start = new Date(currentDate);
-      const day = start.getDay();
-      const diff = start.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
-      const monday = new Date(start.setDate(diff));
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
       
-      const sunday = new Date(monday);
-      sunday.setDate(sunday.getDate() + 6);
-      
-      return `${monday.toLocaleDateString(lang === "th" ? "th-TH" : "en-US", { month: "short", day: "numeric" })} - ${sunday.toLocaleDateString(lang === "th" ? "th-TH" : "en-US", options)}`;
+      return `${start.toLocaleDateString(lang === "th" ? "th-TH" : "en-US", { month: "short", day: "numeric" })} - ${end.toLocaleDateString(lang === "th" ? "th-TH" : "en-US", options)}`;
     } else {
       return currentDate.toLocaleDateString(lang === "th" ? "th-TH" : "en-US", { month: "long", year: "numeric" });
     }
@@ -124,6 +126,10 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
     if (seg === "Week") return t("dbWeekView");
     return t("dbMonthView");
   };
+
+  const isRealToday = formatDateKey(currentDate) === formatDateKey(realNow);
+  const currentTimeTop = Math.max(0, (realNow.getHours() - 8) * 60 + realNow.getMinutes());
+  const shouldShowTimeIndicator = realNow.getHours() >= 8 && realNow.getHours() <= 18;
 
   return (
     <div className="flex-grow flex flex-col p-6 gap-6 overflow-hidden">
@@ -314,6 +320,17 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
                     ))}
                   </div>
 
+                  {/* Current Time Indicator for Day View */}
+                  {isRealToday && shouldShowTimeIndicator && (
+                    <div 
+                      className="absolute left-0 right-0 z-20 flex items-center pointer-events-none"
+                      style={{ top: `${currentTimeTop}px` }}
+                    >
+                      <div className="w-2 h-2 rounded-full bg-red-500 -ml-1"></div>
+                      <div className="flex-grow border-t-2 border-red-500"></div>
+                    </div>
+                  )}
+
                   {rooms.map((room) => {
                     const dayBookings = bookings.filter(
                       (b) => b.roomId === room.id && b.date === currentFormattedDate && b.status === "CONFIRMED"
@@ -380,14 +397,10 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
               
               <div className="flex-grow grid grid-cols-7 divide-x divide-outline-variant/85">
                 {Array.from({ length: 7 }).map((_, idx) => {
-                  // Find day relative to Monday
-                  const start = new Date(currentDate);
-                  const day = start.getDay();
-                  const diff = start.getDate() - day + (day === 0 ? -6 : 1);
-                  const mon = new Date(start.setDate(diff));
+                  const mon = new Date(currentDate);
                   mon.setDate(mon.getDate() + idx);
 
-                  const isToday = formatDateKey(mon) === formatDateKey(new Date("2024-10-24"));
+                  const isToday = formatDateKey(mon) === formatDateKey(realNow);
 
                   return (
                     <div key={idx} className={`p-2.5 text-center min-w-0 ${isToday ? "bg-primary/5" : ""}`}>
@@ -427,12 +440,10 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
                   </div>
 
                   {Array.from({ length: 7 }).map((_, idx) => {
-                    const start = new Date(currentDate);
-                    const day = start.getDay();
-                    const diff = start.getDate() - day + (day === 0 ? -6 : 1);
-                    const cellDate = new Date(start.setDate(diff));
+                    const cellDate = new Date(currentDate);
                     cellDate.setDate(cellDate.getDate() + idx);
                     const cellFormattedDate = formatDateKey(cellDate);
+                    const isThisCellRealToday = cellFormattedDate === formatDateKey(realNow);
 
                     // Filter bookings for this day and matching filter options
                     const cellBookings = bookings.filter((b) => {
@@ -444,6 +455,17 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
 
                     return (
                       <div key={idx} className="relative h-full group/col min-w-0">
+                        {/* Current Time Indicator for Week View */}
+                        {isThisCellRealToday && shouldShowTimeIndicator && (
+                          <div 
+                            className="absolute left-0 right-0 z-20 flex items-center pointer-events-none"
+                            style={{ top: `${currentTimeTop}px` }}
+                          >
+                            <div className="w-2 h-2 rounded-full bg-red-500 -ml-1"></div>
+                            <div className="flex-grow border-t-2 border-red-500"></div>
+                          </div>
+                        )}
+
                         {/* Empty Time Click slot */}
                         {hours.slice(0, -1).map((hour) => {
                           const timeStr = `${hour.toString().padStart(2, "0")}:00`;
@@ -526,7 +548,7 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
                   const cellDate = new Date(year, month, 1 - startOffset + cellIdx);
                   const cellFormattedDate = formatDateKey(cellDate);
                   const isCurrentMonth = cellDate.getMonth() === month;
-                  const isToday = cellFormattedDate === formatDateKey(new Date("2024-10-24"));
+                  const isToday = cellFormattedDate === formatDateKey(realNow);
 
                   // Bookings happening on this calendar date
                   const cellBookings = bookings.filter((b) => b.date === cellFormattedDate && b.status === "CONFIRMED");

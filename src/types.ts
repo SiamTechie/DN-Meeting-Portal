@@ -43,6 +43,7 @@ export interface Booking {
   onlinePlatform?: "Zoom" | "Microsoft Teams" | "Google Meet" | "Other";
   onlineLink?: string;
   onlineId?: string;
+  createdAt?: string;
 }
 
 export type ViewTab = "dashboard" | "room-list" | "my-bookings" | "admin" | "kiosk" | "room-detail" | "booking-form";
