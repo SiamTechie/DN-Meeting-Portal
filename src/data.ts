@@ -36,6 +36,7 @@ export const ATTENDEES_LIST: Attendee[] = [
 export const INITIAL_ROOMS: Room[] = [
   {
     id: "101",
+    buildingId: "dn-center",
     name: "Conference A",
     type: "Executive",
     capacity: 8,
@@ -48,6 +49,7 @@ export const INITIAL_ROOMS: Room[] = [
   },
   {
     id: "102",
+    buildingId: "dn-center",
     name: "Huddle 101",
     type: "Workshop",
     capacity: 4,
@@ -60,6 +62,7 @@ export const INITIAL_ROOMS: Room[] = [
   },
   {
     id: "103",
+    buildingId: "dn-center",
     name: "Creative Studio",
     type: "Workshop",
     capacity: 12,
@@ -72,6 +75,7 @@ export const INITIAL_ROOMS: Room[] = [
   },
   {
     id: "201",
+    buildingId: "dn-center",
     name: "Room 201",
     type: "Meeting",
     capacity: 12,
@@ -84,6 +88,7 @@ export const INITIAL_ROOMS: Room[] = [
   },
   {
     id: "202",
+    buildingId: "dn-center",
     name: "Boardroom B",
     type: "Quiet Zone",
     capacity: 15,
@@ -96,6 +101,7 @@ export const INITIAL_ROOMS: Room[] = [
   },
   {
     id: "203",
+    buildingId: "dn-center",
     name: "Focus Pod",
     type: "Interview",
     capacity: 2,
@@ -108,6 +114,7 @@ export const INITIAL_ROOMS: Room[] = [
   },
   {
     id: "301",
+    buildingId: "dn-center",
     name: "Sky Lounge",
     type: "Boardroom",
     capacity: 20,
@@ -120,6 +127,7 @@ export const INITIAL_ROOMS: Room[] = [
   },
   {
     id: "302",
+    buildingId: "dn-center",
     name: "Global Link Hub",
     type: "Lab",
     capacity: 6,
@@ -129,6 +137,86 @@ export const INITIAL_ROOMS: Room[] = [
     image: "https://lh3.googleusercontent.com/aida-public/AB6AXuBoaAVfgeLJpjyThzRhUpc1qmVr_ZlMXW19iHLb85A-1_7SRr0R3AiyinmJI1FFDJy4CVy3P8o-E_A1brMXK1j6-yT8Qucp-wTieOWdhz1bR4mX1Xlk9ASc29YsErldurQyxQ7adAk_KDDyizHIxZpDfC5SsXdmFd_t-M7flVsp4vhTWn2AUUvvFIyO4tfE9QUjYJwA4KXCyX7LXRLPgqzNWZd43vqjxeKbJ3utZnViCzYmr7CaVGCU",
     equipment: ["High-speed Wifi", "Video Conference System", "4K Display"],
     location: "3rd Floor, Tech Center • DN CENTER HQ"
+  },
+
+  // --- Health Up Building (Placeholder rooms; awaiting real data) ---
+  {
+    id: "HU-101",
+    buildingId: "health-up",
+    name: "Wellness Room A",
+    type: "Meeting",
+    capacity: 8,
+    floor: 1,
+    sqft: 350,
+    tier: "Premium",
+    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuDEg5DITXLeu62SxWN5trxaT93cQisENyi_a45NdN79HO7bQSH9ruIkhOO-j8Hqffysdbk3nY8pKUhOXUAYfEGuzR0chWb1bAmFIZ6TRmdTlW9filU3tgzOMdslT05CiIAgloMVSpPuTE24r6FGY5gbRXM40Nqv9voWb_2QnuQtakGomMDm0nkZ1yVS-xRZoBIDRbOnNeR9n02ny5gJNUOoidhZujmsTYxVfHG5gI1nRHBYB6PE6oST",
+    equipment: ["High-speed Wifi", "4K Display"],
+    location: "1st Floor, Wing A • HEALTH UP"
+  },
+  {
+    id: "HU-102",
+    buildingId: "health-up",
+    name: "Huddle Room 1",
+    type: "Workshop",
+    capacity: 4,
+    floor: 1,
+    sqft: 180,
+    tier: "Standard",
+    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuCEhZ9nqwUjaJBtoaxnxRr9i1IqqZsk_eDly3WcwpVsZgW47XCnkS7jpCBLvgG0XWZpqrJP9VkVrbC1iYmuHiJuzzww_UoWfXrvj54qvIFonOcV58uWBNEpt2oqzKrkzgR5qQw3IjL160EDbzOOH08t2h601FA0yAhl6VRuE-1cnEm3JChDnmlBLzFI1V3INrBanH1-xQ1ITQF3nYR5GGl5GJ-3gGhPFmh9GUAYlWiCMtkmgRTH8BmT",
+    equipment: ["High-speed Wifi"],
+    location: "1st Floor, Wing B • HEALTH UP"
+  },
+  {
+    id: "HU-201",
+    buildingId: "health-up",
+    name: "Care Conference Room",
+    type: "Meeting",
+    capacity: 12,
+    floor: 2,
+    sqft: 450,
+    tier: "Elite Tier",
+    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuClYPBT85GVjFhHQ0lasxhbeTLqqQcyw2tjaZZN4m2REVO-n2GtbYjy9SqCK8tkB7bU8oCFPMQXIY4z7LqvY28q15PrTBwC_oUYtJRpNo3sAUTjxXk9q7llFzgrdlnyn5blib9uc1S1yXM6ff8yIr7paT7_9_Vmr5VPpR1YXVinswXsNxzjcIyabWo8fudaTHMMyyAF4xWD31R_twOZNhvdBJvWoBVPlFvWzjgQysDtV0NcrWvo8VJD",
+    equipment: ["High-speed Wifi", "4K Display", "Video Conference System"],
+    location: "2nd Floor, East Wing • HEALTH UP"
+  },
+  {
+    id: "HU-202",
+    buildingId: "health-up",
+    name: "Boardroom Health",
+    type: "Boardroom",
+    capacity: 15,
+    floor: 2,
+    sqft: 600,
+    tier: "Elite Tier",
+    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuB1xQTgfsEsbyRMT_l8NsZTAGIjSnWQu-p5zHLWjPcf9aWzdNh0Uk5MtDRFKClyvbXdAKqpQLFR5Ag-lItgQDOb-fsSoQXZXLiQr7qC-djauBXWkAs1_pld3fmFyW43najqTFboiQjj-M_JCCMRSV9cmFXfanLQQQrlzL5Be7UbNAkM8hW3wMRG7qvBaioPw53YCh75CNcD_uOvtlyJ15bpygLx0-CyiuuC5ZXQY-WRjTJnofNL53Lx",
+    equipment: ["High-speed Wifi", "Video Conference System", "4K Display", "Whiteboard Wall"],
+    location: "2nd Floor, Boardroom Suite • HEALTH UP"
+  },
+  {
+    id: "HU-301",
+    buildingId: "health-up",
+    name: "Sky Terrace",
+    type: "Boardroom",
+    capacity: 20,
+    floor: 3,
+    sqft: 800,
+    tier: "Elite Tier",
+    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuAiJneE9yPG4FO9uFvctLpRJ6BaZVeJZsG2-6-pGgLHzAQZGHvwCGjACan_-h9vhIxf_k7SjWT7tFxZUvrSvdENGhJjmZMox4qTnTm5e1zNgxSu41l_xjMhyRT2KzeLYJfPJNLwhD_lNGWHNLbrD6UD6HyjH1dxPwqFrroi4LvCr_0Yhq0CFnKMZgKgNSuNqDjA_4DFACPdD8emTBVBadW0sApwu53nVtywHRxsIZNJaOzyo26zZUad",
+    equipment: ["High-speed Wifi", "4K Display", "City Panoramic Windows"],
+    location: "3rd Floor, Executive Suite • HEALTH UP"
+  },
+  {
+    id: "HU-302",
+    buildingId: "health-up",
+    name: "Innovation Lab",
+    type: "Lab",
+    capacity: 6,
+    floor: 3,
+    sqft: 280,
+    tier: "Premium",
+    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuBoaAVfgeLJpjyThzRhUpc1qmVr_ZlMXW19iHLb85A-1_7SRr0R3AiyinmJI1FFDJy4CVy3P8o-E_A1brMXK1j6-yT8Qucp-wTieOWdhz1bR4mX1Xlk9ASc29YsErldurQyxQ7adAk_KDDyizHIxZpDfC5SsXdmFd_t-M7flVsp4vhTWn2AUUvvFIyO4tfE9QUjYJwA4KXCyX7LXRLPgqzNWZd43vqjxeKbJ3utZnViCzYmr7CaVGCU",
+    equipment: ["High-speed Wifi", "Video Conference System", "4K Display"],
+    location: "3rd Floor, Tech Center • HEALTH UP"
   }
 ];
 

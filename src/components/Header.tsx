@@ -24,6 +24,10 @@ export default function Header({ searchQuery, setSearchQuery, title, lang, setLa
     return parseInt(localStorage.getItem("dn_last_viewed_notifications") || "0", 10);
   });
 
+  // Popover States
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+
   const latestBookingTime = bookings.reduce((max, b) => {
     if (!b.createdAt) return max;
     const time = new Date(b.createdAt).getTime();
@@ -41,7 +45,7 @@ export default function Header({ searchQuery, setSearchQuery, title, lang, setLa
   const getHelpContent = () => {
     switch(activeTab) {
       case "dashboard":
-        return lang === "th" ? "หน้านี้แสดงภาพรวมของการจองห้องประชุมทั้งหมด คุณสามารถดูตารางเวลาและเลือกจองห้องได้อย่างรวดเร็ว" : "This page shows an overview of all room bookings. You can view schedules and quickly book a room.";
+        return lang === "th" ? "หน้านี้แสดงภาพรวมของการจองห้องประชุมทั้งหมด คุณสามารถดูตารางเวลาและเลือกจองห้องได้อย่างรวด" : "This page shows an overview of all room bookings. You can view schedules and quickly book a room.";
       case "room-list":
         return lang === "th" ? "ค้นหาและเรียกดูห้องประชุมทั้งหมด พร้อมดูรายละเอียดและสิ่งอำนวยความสะดวกของแต่ละห้อง" : "Search and browse all meeting rooms, view their details and available amenities.";
       case "room-detail":
@@ -58,82 +62,75 @@ export default function Header({ searchQuery, setSearchQuery, title, lang, setLa
   };
 
   return (
-    <header className="sticky top-0 z-30 flex justify-between items-center px-6 py-4 border-b border-outline-variant bg-surface/85 backdrop-blur-md select-none">
-      <div className="flex items-center gap-6">
+    <header className="sticky top-0 z-30 flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 border-b border-outline-variant bg-surface/85 backdrop-blur-md select-none">
+      <div className="flex items-center gap-3 sm:gap-6 flex-grow max-w-xs sm:max-w-none">
         {/* Page Title */}
-        <h1 className="hidden lg:block font-display font-bold text-xl text-primary select-none">
+        <h1 className="hidden md:block font-display font-bold text-xl sm:text-2xl text-primary select-none whitespace-nowrap">
           {title}
         </h1>
 
         {/* Search Bar */}
-        <div className="relative group">
+        <div className="relative group flex-grow sm:flex-grow-0">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant group-focus-within:text-primary transition-colors" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t("searchPlaceholder")}
-            className="pl-10 pr-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-full text-sm font-sans focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary w-[260px] md:w-[320px] transition-all"
+            className="pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-full text-xs sm:text-sm font-sans focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary w-full sm:w-[240px] md:w-[320px] transition-all"
           />
         </div>
       </div>
 
       {/* Action Badges */}
-      <div className="flex items-center gap-3">
-        {/* Language Switcher Buttons */}
-        <div className="flex items-center gap-1 bg-surface-container-high p-1 rounded-xl border border-outline-variant/30 text-xs font-bold mr-2">
-          <button
-            onClick={() => setLang("th")}
-            className={`px-2.5 py-1.5 rounded-lg transition-all cursor-pointer ${
-              lang === "th" ? "bg-white text-primary shadow-2xs" : "text-on-surface-variant/80 hover:text-primary"
-            }`}
-          >
-            TH
-          </button>
-          <button
-            onClick={() => setLang("en")}
-            className={`px-2.5 py-1.5 rounded-lg transition-all cursor-pointer ${
-              lang === "en" ? "bg-white text-primary shadow-2xs" : "text-on-surface-variant/80 hover:text-primary"
-            }`}
-          >
-            EN
-          </button>
-        </div>
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
 
         <button 
           onClick={handleNotificationClick}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-variant/40 text-on-surface-variant relative transition-colors cursor-pointer"
+          className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full hover:bg-surface-variant/40 text-on-surface-variant relative transition-colors cursor-pointer"
         >
-          <Bell className="w-5 h-5" />
+          <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
           {hasNewBookings && (
-            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-error rounded-full ring-2 ring-surface"></span>
+            <span className="absolute top-2 right-2 sm:top-2.5 sm:right-2.5 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-error rounded-full ring-2 ring-surface"></span>
           )}
         </button>
 
-        <div className="relative group/help">
-          <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-variant/40 text-on-surface-variant transition-colors cursor-pointer">
-            <HelpCircle className="w-5 h-5" />
+        {/* Help Guide Menu */}
+        <div className="relative">
+          <button 
+            onClick={() => setIsHelpOpen(!isHelpOpen)}
+            className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full hover:bg-surface-variant/40 text-on-surface-variant transition-colors cursor-pointer ${isHelpOpen ? 'bg-surface-variant/40 text-primary' : ''}`}
+          >
+            <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
           
-          <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-outline-variant rounded-xl shadow-lg opacity-0 invisible group-hover/help:opacity-100 group-hover/help:visible transition-all p-4 z-50">
-            <h4 className="font-bold text-on-surface text-sm mb-1">{lang === "th" ? "คู่มือการใช้งาน" : "Help Guide"}</h4>
-            <p className="text-xs text-on-surface-variant leading-relaxed">
-              {getHelpContent()}
-            </p>
-          </div>
+          {isHelpOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setIsHelpOpen(false)} />
+              <div className="absolute right-0 top-full mt-2 w-60 sm:w-64 bg-white border border-outline-variant rounded-xl shadow-lg p-4 z-50">
+                <h4 className="font-bold text-on-surface text-sm mb-1">{lang === "th" ? "คู่มือการใช้งาน" : "Help Guide"}</h4>
+                <p className="text-xs text-on-surface-variant leading-relaxed">
+                  {getHelpContent()}
+                </p>
+              </div>
+            </>
+          )}
         </div>
 
-        <div className="h-6 w-px bg-outline-variant/60 mx-1"></div>
+        <div className="h-5 sm:h-6 w-px bg-outline-variant/60 mx-0.5 sm:mx-1"></div>
 
         {/* User Profile or Login */}
         {currentUser ? (
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:block text-right">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden lg:block text-right">
               <p className="text-xs font-bold text-on-surface">{currentUser.name}</p>
               <p className="text-[10px] text-on-surface-variant font-medium">{currentUser.role}</p>
             </div>
-            <div className="relative group">
-              <div className="w-9 h-9 rounded-full overflow-hidden border border-outline-variant shadow-xs cursor-pointer">
+            <div className="relative">
+              <div 
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border border-outline-variant shadow-xs cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all"
+              >
                 <img
                   className="w-full h-full object-cover"
                   alt={currentUser.name}
@@ -141,30 +138,39 @@ export default function Header({ searchQuery, setSearchQuery, title, lang, setLa
                 />
               </div>
               
-              <div className="absolute right-0 top-full mt-2 w-40 bg-white border border-outline-variant rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-                <Link 
-                  to="/profile"
-                  className="w-full text-left px-4 py-3 text-sm text-on-surface hover:bg-surface-container-high rounded-t-xl flex items-center gap-2 cursor-pointer border-b border-outline-variant/30"
-                >
-                  <Settings className="w-4 h-4 text-on-surface-variant" />
-                  {lang === "th" ? "จัดการบัญชี" : "Profile"}
-                </Link>
-                <button 
-                  onClick={() => logoutUser()}
-                  className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 rounded-b-xl flex items-center gap-2 cursor-pointer"
-                >
-                  <LogOut className="w-4 h-4" />
-                  {lang === "th" ? "ออกจากระบบ" : "Sign Out"}
-                </button>
-              </div>
+              {isProfileOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} />
+                  <div className="absolute right-0 top-full mt-2 w-36 sm:w-40 bg-white border border-outline-variant rounded-xl shadow-lg z-50 overflow-hidden">
+                    <Link 
+                      to="/profile"
+                      onClick={() => setIsProfileOpen(false)}
+                      className="w-full text-left px-4 py-2.5 text-xs sm:text-sm text-on-surface hover:bg-surface-container-high rounded-t-xl flex items-center gap-2 cursor-pointer border-b border-outline-variant/30"
+                    >
+                      <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-on-surface-variant" />
+                      {lang === "th" ? "จัดการบัญชี" : "Profile"}
+                    </Link>
+                    <button 
+                      onClick={() => {
+                        setIsProfileOpen(false);
+                        logoutUser();
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-xs sm:text-sm text-red-600 hover:bg-red-50 rounded-b-xl flex items-center gap-2 cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      {lang === "th" ? "ออกจากระบบ" : "Sign Out"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         ) : (
           <button 
             onClick={onLoginClick}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-bold rounded-full hover:bg-primary/90 transition-colors cursor-pointer shadow-xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-primary text-white text-xs sm:text-sm font-bold rounded-full hover:bg-primary/90 transition-colors cursor-pointer shadow-xs"
           >
-            <LogIn className="w-4 h-4" />
+            <LogIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span className="hidden sm:block">{lang === "th" ? "เข้าสู่ระบบ" : "Log In"}</span>
           </button>
         )}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Room, Booking, Attendee, User } from "../types";
+import { Room, Booking, Attendee, User, BuildingId } from "../types";
 import { ATTENDEES_LIST } from "../data";
 import { Calendar, Clock, Mail, Users, X, CheckCircle, HelpCircle, Video, MapPin, Globe } from "lucide-react";
 import { Language, translations } from "../locales";
@@ -14,6 +14,8 @@ interface BookingFormViewProps {
   onCancel: () => void;
   lang: Language;
   users: User[];
+  currentUser: User | null;
+  selectedBuilding: BuildingId;
 }
 
 export default function BookingFormView({
@@ -25,12 +27,36 @@ export default function BookingFormView({
   onCancel,
   lang,
   users,
+  currentUser,
+  selectedBuilding,
 }: BookingFormViewProps) {
+  // Booking form always scopes its room dropdown to the building selected in
+  // the sidebar, so rooms from the other company never mix into this list.
+  const buildingRooms = rooms.filter((r) => r.buildingId === selectedBuilding);
   const t = (key: keyof typeof translations.th) => translations[lang][key] || key;
 
-  const [meetingTitle, setMeetingTitle] = useState("Marketing Sync");
+  // Generate 24hr time options (08:00 to 18:00 in 30min intervals)
+  const timeOptions: string[] = [];
+  for (let h = 8; h <= 18; h++) {
+    const hour = h.toString().padStart(2, '0');
+    timeOptions.push(`${hour}:00`);
+    if (h !== 18) {
+      timeOptions.push(`${hour}:30`);
+    }
+  }
+
+  const getTodayString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const date = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${date}`;
+  };
+
+  const [meetingTitle, setMeetingTitle] = useState("");
+  const [notes, setNotes] = useState("");
   const [activeRoomId, setActiveRoomId] = useState("");
-  const [bookingDate, setBookingDate] = useState("2024-10-24");
+  const [bookingDate, setBookingDate] = useState(getTodayString());
   const [startTime, setStartTime] = useState(initialStartTime);
   const [endTime, setEndTime] = useState("11:30");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -42,10 +68,7 @@ export default function BookingFormView({
   const [onlineId, setOnlineId] = useState("");
   
   // Attendee Multi-select States
-  const [selectedAttendees, setSelectedAttendees] = useState<Attendee[]>([
-    ATTENDEES_LIST[0], // Sarah Johnson
-    ATTENDEES_LIST[1], // David K.
-  ]);
+  const [selectedAttendees, setSelectedAttendees] = useState<Attendee[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [attendeeSearch, setAttendeeSearch] = useState("");
 
@@ -53,21 +76,23 @@ export default function BookingFormView({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBooked, setIsBooked] = useState(false);
 
-  // Set default active room on load
+  // Set default active room on load. Prefers an available (non-maintenance)
+  // room within the current building when no specific room was pre-selected.
   useEffect(() => {
-    if (selectedRoom) {
+    if (selectedRoom && selectedRoom.buildingId === selectedBuilding) {
       setActiveRoomId(selectedRoom.id);
-    } else if (rooms.length > 0) {
-      setActiveRoomId(rooms[0].id);
+    } else if (buildingRooms.length > 0) {
+      const firstAvailable = buildingRooms.find((r) => r.status !== "MAINTENANCE") || buildingRooms[0];
+      setActiveRoomId(firstAvailable.id);
     }
-  }, [selectedRoom, rooms]);
+  }, [selectedRoom, buildingRooms, selectedBuilding]);
 
   // Clear error message when parameters change
   useEffect(() => {
     setErrorMessage(null);
   }, [activeRoomId, bookingDate, startTime, endTime, meetingType]);
 
-  const activeRoomObj = rooms.find((r) => r.id === activeRoomId) || rooms[0];
+  const activeRoomObj = buildingRooms.find((r) => r.id === activeRoomId) || buildingRooms[0];
 
   const handleAddAttendee = (attendee: Attendee) => {
     if (!selectedAttendees.some((a) => a.id === attendee.id)) {
@@ -88,6 +113,20 @@ export default function BookingFormView({
     // Time validation check: Start must be before end
     if (startTime >= endTime) {
       setErrorMessage(t("bfErrorTime"));
+      return;
+    }
+
+    // Past booking check
+    const now = new Date();
+    const bookingDateTime = new Date(`${bookingDate}T${startTime}:00`);
+    if (bookingDateTime < now) {
+      setErrorMessage(t("bfErrorPast"));
+      return;
+    }
+
+    // Block booking rooms currently closed for maintenance
+    if (activeRoomObj?.status === "MAINTENANCE") {
+      setErrorMessage(t("bfErrorMaintenance"));
       return;
     }
 
@@ -121,12 +160,13 @@ export default function BookingFormView({
           id: `bk-${Date.now()}`,
           roomId: activeRoomId,
           title: meetingTitle,
-          organizer: "Alex Morgan", // Current logged-in user
-          organizerAvatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuA1B3r4mX3tP4VtQbLwnA2jYEK2ugap2jCnHk6IXl1ZHOVIjI1Wixv4S8LuliCyPSuM5llSbab3aSvD89eU7ofHoMAjmnLUifSl18P-ybmzyzQ82OBTd--Gsntce6p-yOadGKwWojPJ4XggkJHyh_JQOd2cZHrAKqGDgSiSTECiMF8Q_tFu1Ydo-41ZMnPJDyBhBRq_f_GZer-4wNBJ1agfL0aU0ZWmE_YdApn8Th2HhvUiYzrq22lM",
+          organizer: currentUser?.name || "Anonymous",
+          organizerAvatar: currentUser?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || "A")}&background=random`,
           date: bookingDate,
           startTime: startTime,
           endTime: endTime,
           attendees: selectedAttendees,
+          notes: notes,
           status: "CONFIRMED",
           meetingType: meetingType,
           ...(meetingType === "ONLINE" ? {
@@ -150,17 +190,15 @@ export default function BookingFormView({
   );
 
   return (
-    <div className="flex-grow flex items-center justify-center p-6 relative overflow-hidden select-none">
+    <div className="flex-grow flex items-start justify-center p-4 md:p-8 md:pt-10 relative overflow-visible select-none">
       
-      {/* Background Decorative Gradient Aura */}
-      <div className="absolute top-0 right-0 -mr-32 -mt-32 w-96 h-96 bg-primary-fixed opacity-15 blur-3xl rounded-full pointer-events-none"></div>
-      <div className="absolute bottom-0 left-0 -ml-32 -mb-32 w-96 h-96 bg-secondary-fixed opacity-15 blur-3xl rounded-full pointer-events-none"></div>
+
 
       {/* Booking Form Container Card */}
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-[0px_10px_35px_rgba(0,0,0,0.06)] border border-outline-variant/60 relative z-10 overflow-hidden flex flex-col md:flex-row">
+      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-[0px_10px_35px_rgba(0,0,0,0.06)] border border-outline-variant/60 relative z-10 overflow-visible flex flex-col md:flex-row">
         
         {/* Left Sidebar: Preselected Room Card Summary */}
-        <div className="hidden md:flex flex-col w-64 bg-surface-container-low p-6 border-r border-outline-variant/65">
+        <div className="hidden md:flex flex-col w-64 bg-surface-container-low p-6 border-r border-outline-variant/65 rounded-l-2xl">
           {activeRoomObj && (
             <div className="h-full flex flex-col justify-between">
               <div>
@@ -204,15 +242,15 @@ export default function BookingFormView({
         </div>
 
         {/* Right Side: Interactive Input Fields Form */}
-        <div className="flex-grow p-6 md:p-8 max-h-[600px] overflow-y-auto custom-scrollbar">
-          <div className="mb-6">
+        <div className="flex-grow p-5 md:p-6">
+          <div className="mb-4">
             <h1 className="font-display font-black text-xl text-on-surface">{t("bfTitle")}</h1>
             <p className="font-sans text-xs text-on-surface-variant/80 mt-0.5">
               {t("bfSub")}
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-3.5">
             {/* Field 1: Meeting Purpose Title */}
             <div className="space-y-1">
               <label className="font-sans font-bold text-xs text-on-surface-variant/90" htmlFor="meeting-title">
@@ -226,6 +264,7 @@ export default function BookingFormView({
                 placeholder="Enter meeting purpose..."
                 className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant font-sans text-sm focus:ring-2 focus:ring-secondary-container focus:border-primary outline-hidden transition-all bg-[#FCFCFF]"
                 required
+                autoFocus
               />
             </div>
 
@@ -240,9 +279,9 @@ export default function BookingFormView({
                 onChange={(e) => setActiveRoomId(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant font-sans text-sm focus:ring-2 focus:ring-secondary-container focus:border-primary outline-hidden transition-all bg-white cursor-pointer"
               >
-                {rooms.map((room) => (
-                  <option key={room.id} value={room.id}>
-                    Room {room.id} ({room.name} - Cap {room.capacity})
+                {buildingRooms.map((room) => (
+                  <option key={room.id} value={room.id} disabled={room.status === "MAINTENANCE"}>
+                    {room.name}{room.status === "MAINTENANCE" ? ` ${t("bfMaintenanceOption")}` : ""}
                   </option>
                 ))}
               </select>
@@ -264,7 +303,7 @@ export default function BookingFormView({
                   }`}
                 >
                   <MapPin className="w-3.5 h-3.5" />
-                  {t("bfOnSite")}
+                  On-site
                 </button>
                 <button
                   type="button"
@@ -276,7 +315,7 @@ export default function BookingFormView({
                   }`}
                 >
                   <Globe className="w-3.5 h-3.5" />
-                  {t("bfOnline")}
+                  Online
                 </button>
               </div>
             </div>
@@ -345,30 +384,35 @@ export default function BookingFormView({
                     type="date"
                     value={bookingDate}
                     onChange={(e) => setBookingDate(e.target.value)}
-                    className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-outline-variant font-sans text-sm focus:ring-2 focus:ring-secondary-container focus:border-primary outline-hidden transition-all bg-[#FCFCFF] cursor-pointer"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant font-sans text-sm focus:ring-2 focus:ring-secondary-container focus:border-primary outline-hidden transition-all bg-[#FCFCFF] cursor-pointer"
                   />
-                  <Calendar className="w-4 h-4 text-on-surface-variant absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <label className="font-sans font-bold text-xs text-on-surface-variant/90">{t("bfStartTime")}</label>
-                  <input
-                    type="time"
+                  <select
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    className="w-full px-2.5 py-2.5 rounded-xl border border-outline-variant font-sans text-sm focus:ring-2 focus:ring-secondary-container focus:border-primary outline-hidden transition-all bg-[#FCFCFF] cursor-pointer text-center"
-                  />
+                    className="w-full px-2.5 py-2.5 rounded-xl border border-outline-variant font-sans text-sm focus:ring-2 focus:ring-secondary-container focus:border-primary outline-hidden transition-all bg-[#FCFCFF] cursor-pointer text-center appearance-none"
+                  >
+                    {timeOptions.map((time) => (
+                      <option key={`start-${time}`} value={time}>{time}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-1">
                   <label className="font-sans font-bold text-xs text-on-surface-variant/90">{t("bfEndTime")}</label>
-                  <input
-                    type="time"
+                  <select
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
-                    className="w-full px-2.5 py-2.5 rounded-xl border border-outline-variant font-sans text-sm focus:ring-2 focus:ring-secondary-container focus:border-primary outline-hidden transition-all bg-[#FCFCFF] cursor-pointer text-center"
-                  />
+                    className="w-full px-2.5 py-2.5 rounded-xl border border-outline-variant font-sans text-sm focus:ring-2 focus:ring-secondary-container focus:border-primary outline-hidden transition-all bg-[#FCFCFF] cursor-pointer text-center appearance-none"
+                  >
+                    {timeOptions.map((time) => (
+                      <option key={`end-${time}`} value={time}>{time}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
@@ -377,7 +421,7 @@ export default function BookingFormView({
             <div className="space-y-1 relative">
               <label className="font-sans font-bold text-xs text-on-surface-variant/90">{t("bfGuests")}</label>
               
-              <div className="p-2 border border-outline-variant rounded-xl flex flex-wrap gap-1.5 items-center min-h-[46px] bg-white relative">
+              <div className="p-2 border border-outline-variant rounded-xl flex flex-wrap gap-1.5 items-center min-h-[46px] bg-white focus-within:ring-2 focus-within:ring-secondary-container focus-within:border-primary transition-all relative">
                 <AnimatePresence>
                   {selectedAttendees.map((att) => (
                     <motion.div
@@ -409,7 +453,7 @@ export default function BookingFormView({
                   }}
                   onFocus={() => setShowDropdown(true)}
                   placeholder={selectedAttendees.length === 0 ? "Add guest email..." : "Add..."}
-                  className="flex-grow font-sans text-xs focus:outline-hidden p-1 min-w-[120px] bg-transparent border-transparent focus:ring-0 focus:border-transparent outline-hidden"
+                  className="flex-grow font-sans text-sm focus:outline-none outline-none p-1 min-w-[120px] bg-transparent border-none focus:ring-0 focus:border-none shadow-none input-reset"
                 />
               </div>
 
@@ -418,21 +462,38 @@ export default function BookingFormView({
                   <div className="fixed inset-0 z-30" onClick={() => setShowDropdown(false)}></div>
                   <ul className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-outline-variant rounded-xl shadow-lg z-40 max-h-48 overflow-y-auto custom-scrollbar p-1 divide-y divide-outline-variant/10">
                     {dropdownOptions.map((att) => (
-                      <li
-                        key={att.id}
-                        onClick={() => handleAddAttendee(att)}
-                        className="flex items-center gap-3 px-3 py-2 hover:bg-surface-container-high rounded-lg cursor-pointer transition-colors"
-                      >
-                        <img className="w-6 h-6 rounded-full object-cover shrink-0" alt={att.name} src={att.avatarUrl} referrerPolicy="no-referrer" />
-                        <div className="overflow-hidden">
-                          <p className="text-xs font-bold text-on-surface truncate">{att.name}</p>
-                          <p className="text-[10px] text-on-surface-variant truncate">{att.email}</p>
-                        </div>
+                      <li key={att.id}>
+                        <button
+                          type="button"
+                          onClick={() => handleAddAttendee(att)}
+                          className="w-full flex items-center gap-3 px-3 py-2 hover:bg-surface-container-high focus:bg-surface-container-high focus:outline-hidden rounded-lg cursor-pointer transition-colors text-left"
+                        >
+                          <img className="w-6 h-6 rounded-full object-cover shrink-0" alt={att.name} src={att.avatarUrl} referrerPolicy="no-referrer" />
+                          <div className="overflow-hidden">
+                            <p className="text-xs font-bold text-on-surface truncate">{att.name}</p>
+                            <p className="text-[10px] text-on-surface-variant truncate">{att.email}</p>
+                          </div>
+                        </button>
                       </li>
                     ))}
                   </ul>
                 </>
               )}
+            </div>
+
+            {/* Field: Notes (Optional) */}
+            <div className="space-y-1">
+              <label className="font-sans font-bold text-xs text-on-surface-variant/90" htmlFor="booking-notes">
+                {t("bfNotes")}
+              </label>
+              <textarea
+                id="booking-notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Add any extra requirements or notes here..."
+                rows={2}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant font-sans text-sm focus:ring-2 focus:ring-secondary-container focus:border-primary outline-hidden transition-all bg-[#FCFCFF] resize-none custom-scrollbar"
+              />
             </div>
 
             {/* Error Message Alert Banner */}
@@ -480,7 +541,7 @@ export default function BookingFormView({
                 className={`flex-grow font-sans font-bold text-xs py-3.5 px-4 rounded-xl shadow-xs transition-all flex justify-center items-center gap-2 cursor-pointer outline-hidden ${
                   isBooked
                     ? "bg-green-600 text-white"
-                    : "bg-primary-container text-white hover:bg-primary active:scale-[0.98]"
+                    : "bg-primary text-white hover:bg-primary/90 active:scale-[0.98]"
                 }`}
               >
                 {isSubmitting ? (

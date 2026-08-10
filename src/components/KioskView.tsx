@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Room, Booking } from "../types";
-import { Calendar, Clock, MapPin, CheckCircle, RefreshCw, Layers } from "lucide-react";
+import { Room, Booking, BuildingId } from "../types";
+import { Calendar, Clock, MapPin, CheckCircle, RefreshCw, Layers, Wrench } from "lucide-react";
 import { Language, translations } from "../locales";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -9,9 +9,13 @@ interface KioskViewProps {
   bookings: Booking[];
   onInstantBook: (roomId: string, startTime: string) => void;
   lang: Language;
+  selectedBuilding: BuildingId;
 }
 
-export default function KioskView({ rooms, bookings, onInstantBook, lang }: KioskViewProps) {
+export default function KioskView({ rooms, bookings, onInstantBook, lang, selectedBuilding }: KioskViewProps) {
+  // Kiosk only shows rooms belonging to the currently selected building.
+  const buildingRooms = rooms.filter((r) => r.buildingId === selectedBuilding);
+
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [timeStr, setTimeStr] = useState("");
   const [dateStr, setDateStr] = useState("");
@@ -20,12 +24,14 @@ export default function KioskView({ rooms, bookings, onInstantBook, lang }: Kios
 
   const t = (key: keyof typeof translations.th) => translations[lang][key] || key;
 
-  // Set default active room on load and run real clock
+  // Set/refresh the active room whenever the building-scoped room list
+  // changes (including when switching buildings), and run the real clock.
   useEffect(() => {
-    if (rooms.length > 0) {
-      setSelectedRoomId((prev) => prev || rooms[0].id);
+    if (buildingRooms.length > 0 && !buildingRooms.some((r) => r.id === selectedRoomId)) {
+      setSelectedRoomId(buildingRooms[0].id);
     }
-  }, [rooms]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rooms, selectedBuilding, selectedRoomId]);
 
   useEffect(() => {
     const updateTime = () => {
@@ -65,7 +71,7 @@ export default function KioskView({ rooms, bookings, onInstantBook, lang }: Kios
     return () => clearInterval(interval);
   }, [lang]);
 
-  const activeRoom = rooms.find((r) => r.id === selectedRoomId) || rooms[0];
+  const activeRoom = buildingRooms.find((r) => r.id === selectedRoomId) || buildingRooms[0];
 
   // Get active current booking based on real-time current date
   const roomBookings = bookings.filter(
@@ -118,9 +124,9 @@ export default function KioskView({ rooms, bookings, onInstantBook, lang }: Kios
             onChange={(e) => setSelectedRoomId(e.target.value)}
             className="bg-surface border border-outline-variant text-on-surface font-sans text-xs font-bold py-2 px-3 rounded-lg outline-hidden focus:ring-1 focus:ring-primary cursor-pointer"
           >
-            {rooms.map((r) => (
+            {buildingRooms.map((r) => (
               <option key={r.id} value={r.id} className="text-on-surface bg-surface">
-                Room {r.id} ({r.name})
+                Room {r.id} ({r.name}){r.status === "MAINTENANCE" ? ` ${t("bfMaintenanceOption")}` : ""}
               </option>
             ))}
           </select>
@@ -134,7 +140,9 @@ export default function KioskView({ rooms, bookings, onInstantBook, lang }: Kios
           <div className="lg:col-span-8 bg-surface border border-outline-variant rounded-3xl p-8 flex flex-col justify-between relative overflow-hidden">
             
             {/* Ambient Background Glow reflecting state */}
-            {activeBooking ? (
+            {activeRoom.status === "MAINTENANCE" ? (
+              <div className="absolute top-0 right-0 -mr-24 -mt-24 w-80 h-80 bg-orange-500/10 blur-3xl rounded-full pointer-events-none"></div>
+            ) : activeBooking ? (
               <div className="absolute top-0 right-0 -mr-24 -mt-24 w-80 h-80 bg-red-600/10 blur-3xl rounded-full pointer-events-none"></div>
             ) : (
               <div className="absolute top-0 right-0 -mr-24 -mt-24 w-80 h-80 bg-green-500/10 blur-3xl rounded-full pointer-events-none"></div>
@@ -164,7 +172,23 @@ export default function KioskView({ rooms, bookings, onInstantBook, lang }: Kios
 
             {/* Huge Occupied / Available Panel */}
             <div className="my-10">
-              {activeBooking ? (
+              {activeRoom.status === "MAINTENANCE" ? (
+                <div className="space-y-4">
+                  <div className="inline-flex items-center gap-2 bg-orange-500/10 text-orange-600 border border-orange-500/20 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest">
+                    <Wrench className="w-3.5 h-3.5" />
+                    {t("kiStatusMaintenance")}
+                  </div>
+
+                  <div>
+                    <h1 className="font-display font-black text-4xl leading-tight text-on-surface">
+                      {t("kiStatusMaintenance")}
+                    </h1>
+                    <p className="text-on-surface-variant text-sm mt-1">
+                      {t("kiMaintenanceDesc")}
+                    </p>
+                  </div>
+                </div>
+              ) : activeBooking ? (
                 <div className="space-y-4">
                   <div className="inline-flex items-center gap-2 bg-red-500/10 text-red-600 border border-red-500/20 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest">
                     <span className="w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
@@ -217,7 +241,7 @@ export default function KioskView({ rooms, bookings, onInstantBook, lang }: Kios
                 )}
               </div>
 
-              {!activeBooking && (
+              {!activeBooking && activeRoom.status !== "MAINTENANCE" && (
                 <button
                   onClick={() => {
                     const now = new Date();

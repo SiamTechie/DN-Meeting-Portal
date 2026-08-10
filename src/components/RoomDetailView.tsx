@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import { Room, Booking } from "../types";
-import { ChevronRight, ArrowLeft, Users, Layers, Maximize, Award, Wifi, Tv, Video, Coffee, HelpCircle, CalendarRange } from "lucide-react";
+import { ChevronRight, ArrowLeft, Users, Layers, Award, Wifi, Tv, Video, Coffee, CalendarRange, Wrench } from "lucide-react";
 import { Language, translations } from "../locales";
 import { motion } from "motion/react";
+import { BUILDINGS } from "../buildings";
 
 interface RoomDetailViewProps {
   room: Room;
@@ -14,9 +15,29 @@ interface RoomDetailViewProps {
 
 export default function RoomDetailView({ room, bookings, onBack, onBookClick, lang }: RoomDetailViewProps) {
   const t = (key: keyof typeof translations.th) => translations[lang][key] || key;
+  const building = BUILDINGS[room.buildingId];
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const firstBookedSlotRef = useRef<HTMLDivElement>(null);
+
+  const getTodayString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const date = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${date}`;
+  };
+
+  const timeToMinutes = (timeStr: string): number => {
+    const [h, m] = timeStr.split(":").map(Number);
+    return h * 60 + m;
+  };
 
   // Filter bookings for this room today
-  const roomBookingsToday = bookings.filter((b) => b.roomId === room.id && b.status === "CONFIRMED");
+  const todayStr = getTodayString();
+  const roomBookingsToday = bookings.filter(
+    (b) => b.roomId === room.id && b.date === todayStr && b.status === "CONFIRMED"
+  );
 
   // Custom descriptions based on equipment
   const getEquipmentMeta = (eq: string) => {
@@ -69,15 +90,39 @@ export default function RoomDetailView({ room, bookings, onBack, onBookClick, la
     { label: "16:00", time: "16:00 - 17:00" },
   ];
 
-  // Check if a time slot is booked
+  // Check if a time slot is booked using minute-based overlap check
   const getBookingForSlot = (timeLabel: string) => {
+    const slotStart = timeToMinutes(timeLabel);
+    const slotEnd = slotStart + 60;
+
     return roomBookingsToday.find((b) => {
-      const bStartHour = parseInt(b.startTime.split(":")[0]);
-      const bEndHour = parseInt(b.endTime.split(":")[0]);
-      const slotHour = parseInt(timeLabel.split(":")[0]);
-      return slotHour >= bStartHour && slotHour < bEndHour;
+      const bStart = timeToMinutes(b.startTime);
+      const bEnd = timeToMinutes(b.endTime);
+      return bStart < slotEnd && bEnd > slotStart;
     });
   };
+
+  // Determine target slot index for auto-scroll:
+  // Priority 1 → first booked slot; Priority 2 → current hour slot
+  const currentHour = new Date().getHours();
+  const firstBookedSlotIndex = slots.findIndex((slot) => !!getBookingForSlot(slot.label));
+  const currentTimeSlotIndex = slots.findIndex((slot) => {
+    const h = parseInt(slot.label.split(":")[0]);
+    return h === currentHour;
+  });
+  const targetScrollIndex = firstBookedSlotIndex !== -1
+    ? firstBookedSlotIndex
+    : currentTimeSlotIndex !== -1 ? currentTimeSlotIndex : -1;
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    const target = firstBookedSlotRef.current;
+    if (container && target) {
+      // Scroll smoothly so the booked/current slot is visible near the top
+      const offsetTop = target.offsetTop - 8;
+      container.scrollTo({ top: offsetTop, behavior: "smooth" });
+    }
+  }, [room.id]);
 
   return (
     <div className="flex-grow flex flex-col overflow-y-auto custom-scrollbar p-6">
@@ -92,7 +137,7 @@ export default function RoomDetailView({ room, bookings, onBack, onBookClick, la
             <span>{t("rdBack")}</span>
           </button>
           <ChevronRight className="w-3.5 h-3.5 text-outline-variant" />
-          <span className="text-on-surface font-semibold">Room {room.id}</span>
+          <span className="text-on-surface font-semibold">{room.name}</span>
         </nav>
 
         {/* Room Detail Grid */}
@@ -120,6 +165,17 @@ export default function RoomDetailView({ room, bookings, onBack, onBookClick, la
             <div className="bg-white p-6 rounded-2xl shadow-xs border border-outline-variant/60">
               <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                 <div>
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-primary/10 text-primary">
+                      {lang === "th" ? building.nameTh : building.nameEn}
+                    </span>
+                    {room.status === "MAINTENANCE" && (
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-orange-100 text-orange-700 flex items-center gap-1">
+                        <Wrench className="w-3 h-3" />
+                        {t("rlMaintenanceBadge")}
+                      </span>
+                    )}
+                  </div>
                   <h2 className="font-display font-black text-2xl text-on-surface mb-1 select-all">{room.name}</h2>
                   <p className="text-on-surface-variant font-sans text-sm flex items-center gap-2">
                     <span className="material-symbols-outlined text-secondary text-[18px]">location_on</span>
@@ -195,14 +251,23 @@ export default function RoomDetailView({ room, bookings, onBack, onBookClick, la
               </div>
 
               {/* Scrollable Micro Vertical Grid */}
-              <div className="h-[280px] overflow-y-auto custom-scrollbar relative bg-surface-container-low/20">
+              <div ref={scrollContainerRef} className="h-[280px] overflow-y-auto custom-scrollbar relative bg-surface-container-low/20">
                 <div className="divide-y divide-outline-variant/40">
-                  {slots.map((slot) => {
+                  {slots.map((slot, idx) => {
                     const booking = getBookingForSlot(slot.label);
+                    const isTarget = idx === targetScrollIndex;
                     return (
-                      <div key={slot.label} className="flex items-center min-h-[48px] px-4 relative select-none">
+                      <div
+                        key={slot.label}
+                        ref={isTarget ? firstBookedSlotRef : undefined}
+                        className={`flex items-center min-h-[48px] px-4 relative select-none transition-colors ${
+                          isTarget
+                            ? "bg-primary/5 border-l-2 border-primary"
+                            : ""
+                        }`}
+                      >
                         {/* Time marker */}
-                        <div className="w-14 shrink-0 font-mono text-[10px] font-bold text-on-surface-variant/90 border-r border-outline-variant/40 pr-2">
+                        <div className={`w-14 shrink-0 font-mono text-[10px] font-bold border-r border-outline-variant/40 pr-2 ${isTarget ? "text-primary" : "text-on-surface-variant/90"}`}>
                           {slot.label}
                         </div>
 
@@ -235,9 +300,16 @@ export default function RoomDetailView({ room, bookings, onBack, onBookClick, la
 
               {/* Quick Book trigger */}
               <div className="p-4 bg-surface-container-low border-t border-outline-variant/75 select-none">
+                {room.status === "MAINTENANCE" && (
+                  <p className="text-[10px] font-bold text-orange-600 mb-2.5 flex items-center gap-1.5">
+                    <Wrench className="w-3 h-3 shrink-0" />
+                    {t("rdMaintenanceNotice")}
+                  </p>
+                )}
                 <button
                   onClick={() => onBookClick(room)}
-                  className="w-full bg-primary text-white py-3 rounded-xl font-bold font-display text-xs uppercase tracking-widest hover:bg-primary/95 transition-colors active:scale-[0.98] cursor-pointer shadow-xs"
+                  disabled={room.status === "MAINTENANCE"}
+                  className="w-full bg-primary text-white py-3 rounded-xl font-bold font-display text-xs uppercase tracking-widest hover:bg-primary/95 transition-colors active:scale-[0.98] cursor-pointer shadow-xs disabled:bg-outline-variant disabled:text-on-surface-variant/60 disabled:cursor-not-allowed disabled:hover:bg-outline-variant disabled:shadow-none"
                 >
                   {t("rdBookBtn")}
                 </button>

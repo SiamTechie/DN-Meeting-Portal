@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Room, Booking } from "../types";
-import { ChevronLeft, ChevronRight, Filter, TrendingUp, Users, Clock, Flame, CalendarRange, MapPin } from "lucide-react";
+import { Room, Booking, BuildingId } from "../types";
+import { ChevronLeft, ChevronRight, Filter, TrendingUp, Users, Clock, Flame, CalendarRange, MapPin, Wrench } from "lucide-react";
 import { Language, translations } from "../locales";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -10,12 +10,29 @@ interface DashboardViewProps {
   onRoomSelect: (room: Room) => void;
   onInstantBook: (roomId: string, startTime: string) => void;
   lang: Language;
+  selectedBuilding: BuildingId;
 }
 
-export default function DashboardView({ rooms, bookings, onRoomSelect, onInstantBook, lang }: DashboardViewProps) {
+export default function DashboardView({ rooms, bookings, onRoomSelect, onInstantBook, lang, selectedBuilding }: DashboardViewProps) {
+  // Scope everything on this page to the currently selected building so
+  // room colors/legend/schedules never mix companies together.
+  const buildingRooms = rooms.filter((r) => r.buildingId === selectedBuilding);
+  const buildingRoomIds = new Set(buildingRooms.map((r) => r.id));
+  const buildingBookings = bookings.filter((b) => buildingRoomIds.has(b.roomId));
   // Base date for navigation
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [activeSegment, setActiveSegment] = useState<"Day" | "Week" | "Month">("Week");
+
+  // Tooltip state
+  const [hoveredBooking, setHoveredBooking] = useState<{ booking: Booking, x: number, y: number } | null>(null);
+
+  const handleMouseMove = (e: React.MouseEvent, booking: Booking) => {
+    setHoveredBooking({ booking, x: e.clientX + 15, y: e.clientY + 15 });
+  };
+  
+  const handleMouseLeave = () => {
+    setHoveredBooking(null);
+  };
   
   // Real time tracker for the red line indicator
   const [realNow, setRealNow] = useState(new Date());
@@ -44,25 +61,79 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
     return { top: startHourOffset * 60, height: duration * 60 };
   };
 
-  const getRoomColorClasses = (roomId: string, mode: "card" | "pill" = "card") => {
-    switch (roomId) {
-      case "101":
-        return mode === "card" ? "bg-sky-50 text-sky-800 border-sky-400" : "bg-sky-100 text-sky-800 border-sky-400 hover:bg-sky-200";
-      case "102":
-        return mode === "card" ? "bg-orange-50 text-orange-800 border-orange-400" : "bg-orange-100 text-orange-800 border-orange-400 hover:bg-orange-200";
-      case "103":
-        return mode === "card" ? "bg-emerald-50 text-emerald-800 border-emerald-400" : "bg-emerald-100 text-emerald-800 border-emerald-400 hover:bg-emerald-200";
-      case "201":
-        return mode === "card" ? "bg-purple-50 text-purple-800 border-purple-400" : "bg-purple-100 text-purple-800 border-purple-400 hover:bg-purple-200";
-      case "202":
-        return mode === "card" ? "bg-rose-50 text-rose-800 border-rose-400" : "bg-rose-100 text-rose-800 border-rose-400 hover:bg-rose-200";
-      case "203":
-        return mode === "card" ? "bg-amber-50 text-amber-800 border-amber-400" : "bg-amber-100 text-amber-800 border-amber-400 hover:bg-amber-200";
-      case "301":
-        return mode === "card" ? "bg-lime-50 text-lime-800 border-lime-400" : "bg-lime-100 text-lime-800 border-lime-400 hover:bg-lime-200";
-      default:
-        return mode === "card" ? "bg-slate-50 text-slate-800 border-slate-400" : "bg-slate-100 text-slate-800 border-slate-400 hover:bg-slate-200";
-    }
+  // Resolve overlapping blocks
+  const calculateOverlaps = (bookingsList: Booking[]) => {
+    const parseTime = (timeStr: string) => {
+      const [h, m] = timeStr.split(":").map(Number);
+      return h + m / 60;
+    };
+    
+    const sorted = [...bookingsList].sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
+    const columns: Booking[][] = [];
+    const result = new Map<string, { left: string, width: string }>();
+    let lastEventEnding: number | null = null;
+
+    const packGroup = () => {
+      if (columns.length > 0) {
+        const numCols = columns.length;
+        columns.forEach((col, colIndex) => {
+          col.forEach(event => {
+            result.set(event.id, {
+              left: `calc(${(colIndex / numCols) * 100}% + 2px)`,
+              width: `calc(${(1 / numCols) * 100}% - 4px)`
+            });
+          });
+        });
+        columns.length = 0;
+      }
+    };
+
+    sorted.forEach((b) => {
+      const start = parseTime(b.startTime);
+      const end = parseTime(b.endTime);
+
+      if (lastEventEnding !== null && start >= lastEventEnding) {
+        packGroup();
+      }
+      
+      let placed = false;
+      for (let i = 0; i < columns.length; i++) {
+        const col = columns[i];
+        const lastInCol = col[col.length - 1];
+        if (parseTime(lastInCol.endTime) <= start) {
+          col.push(b);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        columns.push([b]);
+      }
+      lastEventEnding = lastEventEnding === null ? end : Math.max(lastEventEnding, end);
+    });
+
+    packGroup();
+    return result;
+  };
+
+  const ROOM_PALETTES = [
+    { card: "bg-blue-50 text-blue-900 border-blue-200", pill: "bg-blue-100 text-blue-800", dot: "bg-blue-500" },
+    { card: "bg-emerald-50 text-emerald-900 border-emerald-200", pill: "bg-emerald-100 text-emerald-800", dot: "bg-emerald-500" },
+    { card: "bg-purple-50 text-purple-900 border-purple-200", pill: "bg-purple-100 text-purple-800", dot: "bg-purple-500" },
+    { card: "bg-orange-50 text-orange-900 border-orange-200", pill: "bg-orange-100 text-orange-800", dot: "bg-orange-500" },
+    { card: "bg-rose-50 text-rose-900 border-rose-200", pill: "bg-rose-100 text-rose-800", dot: "bg-rose-500" },
+  ];
+
+  const getRoomPaletteIndex = (roomId: string) => {
+    const idx = buildingRooms.findIndex(r => r.id === roomId);
+    return idx >= 0 ? idx % ROOM_PALETTES.length : 0;
+  };
+
+  const getRoomColorClasses = (roomId: string, mode: "card" | "pill" | "dot" = "card") => {
+    const palette = ROOM_PALETTES[getRoomPaletteIndex(roomId)];
+    if (mode === "card") return palette.card;
+    if (mode === "pill") return palette.pill;
+    return palette.dot;
   };
 
   // Navigations based on view mode
@@ -178,7 +249,7 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
                   <span className="text-primary font-black ml-1">
                     {selectedFilterRoomId === "all"
                       ? t("dbAllRooms")
-                      : `Room ${selectedFilterRoomId}`}
+                      : (buildingRooms.find(r => r.id === selectedFilterRoomId)?.name || `Room ${selectedFilterRoomId}`)}
                   </span>
                 </span>
                 <span className="material-symbols-outlined text-[16px] transition-transform duration-200" style={{ transform: isFilterOpen ? 'rotate(180deg)' : 'none' }}>
@@ -219,7 +290,7 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
                         </button>
                       </li>
 
-                      {rooms.map((r) => (
+                      {buildingRooms.map((r) => (
                         <li key={r.id}>
                           <button
                             onClick={() => {
@@ -267,8 +338,23 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
         </div>
       </div>
 
+      {/* Room Legend */}
+      <div className="flex flex-wrap items-center gap-3 md:gap-5 px-1 py-1">
+        {buildingRooms.map((room) => (
+          <div key={`legend-${room.id}`} className="flex items-center gap-1.5 cursor-default group">
+            <span className={`w-2.5 h-2.5 rounded-full ${getRoomColorClasses(room.id, "dot")} shadow-xs transition-transform group-hover:scale-125`}></span>
+            <span className="text-[11px] font-bold text-on-surface-variant group-hover:text-on-surface transition-colors truncate max-w-[120px]">
+              {room.name}
+            </span>
+            {room.status === "MAINTENANCE" && (
+              <Wrench className="w-3 h-3 text-orange-500" />
+            )}
+          </div>
+        ))}
+      </div>
+
       {/* Main Schedule Container Board */}
-      <div className="flex-grow flex flex-col bg-white rounded-2xl shadow-[0px_4px_25px_rgba(0,0,0,0.03)] border border-outline-variant/80 overflow-hidden min-h-[400px]">
+      <div className="flex-grow flex flex-col bg-white rounded-xl shadow-sm border border-outline-variant/80 overflow-hidden min-h-[400px]">
         
         {/* DAY VIEW RENDER */}
         {activeSegment === "Day" && (
@@ -280,17 +366,15 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
               </div>
               
               <div className="flex-grow grid grid-cols-4 md:grid-cols-8 divide-x divide-outline-variant/85">
-                {rooms.map((room) => (
+                {buildingRooms.map((room) => (
                   <div
                     key={room.id}
                     onClick={() => onRoomSelect(room)}
                     className="p-3 text-center cursor-pointer hover:bg-surface-variant/20 transition-all group min-w-0"
                   >
-                    <span className="block font-display font-black text-sm text-primary group-hover:scale-105 transition-transform">
-                      Room {room.id}
-                    </span>
-                    <span className="text-[10px] font-semibold text-on-surface-variant truncate block max-w-full">
+                    <span className="flex items-center justify-center gap-1 font-display font-black text-[13px] text-primary group-hover:scale-105 transition-transform truncate px-1">
                       {room.name}
+                      {room.status === "MAINTENANCE" && <Wrench className="w-3 h-3 text-orange-500 shrink-0" />}
                     </span>
                   </div>
                 ))}
@@ -331,52 +415,68 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
                     </div>
                   )}
 
-                  {rooms.map((room) => {
-                    const dayBookings = bookings.filter(
+                  {buildingRooms.map((room) => {
+                    const dayBookings = buildingBookings.filter(
                       (b) => b.roomId === room.id && b.date === currentFormattedDate && b.status === "CONFIRMED"
                     );
+
+                    const isRoomClosed = room.status === "MAINTENANCE";
 
                     return (
                       <div key={room.id} className="relative h-full group/col min-w-0">
                         {/* Empty Time click targets */}
-                        {hours.slice(0, -1).map((hour) => {
+                        {!isRoomClosed && hours.slice(0, -1).map((hour) => {
                           const timeStr = `${hour.toString().padStart(2, "0")}:00`;
                           return (
-                            <div
+                            <button
                               key={hour}
                               onClick={() => onInstantBook(room.id, timeStr)}
-                              className="h-[60px] w-full hover:bg-primary-container/10 transition-colors cursor-pointer relative group/cell"
-                              title={`${t("dbBookTitle")} ${room.name} ${t("dbTime")} ${timeStr}`}
+                              className="h-[60px] w-full hover:bg-primary/5 transition-colors cursor-pointer relative group/cell block text-left focus:outline-none focus:bg-primary/10"
+                              aria-label={`${t("dbBookTitle")} ${room.name} ${t("dbTime")} ${timeStr}`}
                             >
-                              <div className="absolute inset-0.5 border border-dashed border-transparent hover:border-primary-container/30 rounded-lg pointer-events-none transition-all flex items-center justify-center">
+                              <div className="absolute inset-0.5 border border-dashed border-transparent hover:border-primary/30 rounded-lg pointer-events-none transition-all flex items-center justify-center">
                                 <span className="opacity-0 group-hover/cell:opacity-100 font-mono text-[8px] text-primary font-bold">{t("dbBook")}</span>
                               </div>
-                            </div>
+                            </button>
                           );
                         })}
 
+                        {isRoomClosed && (
+                          <div className="absolute inset-0 bg-orange-50/40 flex items-center justify-center pointer-events-none z-[5]">
+                            <span className="text-[10px] font-bold text-orange-600/70 uppercase tracking-wider [writing-mode:vertical-rl]">
+                              {t("adMaintenanceBadge")}
+                            </span>
+                          </div>
+                        )}
+
                         {/* Booking blocks */}
-                        {dayBookings.map((b) => {
-                          const { top, height } = calculatePosition(b.startTime, b.endTime);
-                          return (
-                            <motion.div
-                              key={b.id}
-                              layoutId={`card-day-${b.id}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onRoomSelect(room);
-                              }}
-                              style={{ top: `${top}px`, height: `${height}px` }}
-                              className={`absolute left-1 right-1 ${getRoomColorClasses(b.roomId, "card")} rounded-xl p-2 shadow-xs flex flex-col justify-between border-l-4 transition-all hover:brightness-[0.98] cursor-pointer overflow-hidden z-10`}
-                            >
-                              <div className="overflow-hidden">
-                                <p className="font-display font-black text-[12px] leading-tight truncate">{b.title}</p>
-                                <p className="text-[10px] text-on-primary-container/85 truncate">{b.organizer}</p>
-                              </div>
-                              <span className="font-mono text-[10px] font-bold leading-none">{b.startTime}-{b.endTime}</span>
-                            </motion.div>
-                          );
-                        })}
+                        {(() => {
+                          const overlaps = calculateOverlaps(dayBookings);
+                          return dayBookings.map((b) => {
+                            const { top, height } = calculatePosition(b.startTime, b.endTime);
+                            const pos = overlaps.get(b.id) || { left: "2px", width: "calc(100% - 4px)" };
+                            return (
+                              <motion.div
+                                key={b.id}
+                                layoutId={`card-day-${b.id}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRoomSelect(room);
+                                }}
+                                onMouseMove={(e) => handleMouseMove(e, b)}
+                                onMouseLeave={handleMouseLeave}
+                                style={{ top: `${top}px`, height: `${height}px`, left: pos.left, width: pos.width }}
+                                className={`absolute ${getRoomColorClasses(b.roomId, "card")} rounded-xl p-2 shadow-sm flex flex-col justify-between border transition-all hover:shadow-md cursor-pointer overflow-hidden z-10`}
+                              >
+                                <div className="overflow-hidden">
+                                  <p className="font-display font-black text-[12px] leading-tight truncate">{b.title}</p>
+                                  <p className="text-[10px] text-on-primary-container/85 truncate">{b.organizer}</p>
+                                </div>
+                                <span className="font-mono text-[10px] font-bold leading-none">{b.startTime}-{b.endTime}</span>
+                              </motion.div>
+                            );
+                          });
+                        })()}
                       </div>
                     );
                   })}
@@ -446,7 +546,7 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
                     const isThisCellRealToday = cellFormattedDate === formatDateKey(realNow);
 
                     // Filter bookings for this day and matching filter options
-                    const cellBookings = bookings.filter((b) => {
+                    const cellBookings = buildingBookings.filter((b) => {
                       const dateMatches = b.date === cellFormattedDate;
                       const statusMatches = b.status === "CONFIRMED";
                       const roomMatches = selectedFilterRoomId === "all" || b.roomId === selectedFilterRoomId;
@@ -469,47 +569,57 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
                         {/* Empty Time Click slot */}
                         {hours.slice(0, -1).map((hour) => {
                           const timeStr = `${hour.toString().padStart(2, "0")}:00`;
+                          const availableRooms = buildingRooms.filter((r) => r.status !== "MAINTENANCE");
+                          const filteredRoom = selectedFilterRoomId !== "all" ? buildingRooms.find((r) => r.id === selectedFilterRoomId) : undefined;
+                          const isSlotDisabled = selectedFilterRoomId !== "all" && filteredRoom?.status === "MAINTENANCE";
                           return (
-                            <div
+                            <button
                               key={hour}
+                              disabled={isSlotDisabled}
                               onClick={() => {
-                                const targetRoomId = selectedFilterRoomId === "all" ? (rooms[0]?.id || "101") : selectedFilterRoomId;
+                                const targetRoomId = selectedFilterRoomId === "all" ? (availableRooms[0]?.id || buildingRooms[0]?.id || "101") : selectedFilterRoomId;
                                 onInstantBook(targetRoomId, timeStr);
                               }}
-                              className="h-[60px] w-full hover:bg-primary-container/10 transition-colors cursor-pointer relative group/cell"
-                              title={t("dbBookTitle")}
+                              className="h-[60px] w-full hover:bg-primary/5 transition-colors cursor-pointer relative group/cell block text-left focus:outline-none focus:bg-primary/10 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                              aria-label={t("dbBookTitle")}
                             >
-                              <div className="absolute inset-0.5 border border-dashed border-transparent hover:border-primary-container/30 rounded-lg pointer-events-none transition-all flex items-center justify-center">
+                              <div className="absolute inset-0.5 border border-dashed border-transparent hover:border-primary/30 rounded-lg pointer-events-none transition-all flex items-center justify-center">
                                 <span className="opacity-0 group-hover/cell:opacity-100 text-[8px] font-bold text-primary">{t("dbBook")}</span>
                               </div>
-                            </div>
+                            </button>
                           );
                         })}
 
                         {/* Render week event block cards */}
-                        {cellBookings.map((b) => {
-                          const { top, height } = calculatePosition(b.startTime, b.endTime);
-                          const associatedRoom = rooms.find((r) => r.id === b.roomId);
+                        {(() => {
+                          const overlaps = calculateOverlaps(cellBookings);
+                          return cellBookings.map((b) => {
+                            const { top, height } = calculatePosition(b.startTime, b.endTime);
+                            const associatedRoom = buildingRooms.find((r) => r.id === b.roomId);
+                            const pos = overlaps.get(b.id) || { left: "2px", width: "calc(100% - 4px)" };
 
-                          return (
-                            <motion.div
-                              key={b.id}
-                              layoutId={`card-week-${b.id}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (associatedRoom) onRoomSelect(associatedRoom);
-                              }}
-                              style={{ top: `${top}px`, height: `${height}px` }}
-                              className={`absolute left-1 right-1 ${getRoomColorClasses(b.roomId, "card")} rounded-xl p-2.5 shadow-xs flex flex-col justify-between border-l-4 transition-all hover:brightness-[0.98] cursor-pointer overflow-hidden z-10`}
-                            >
-                              <div className="overflow-hidden">
-                                <p className="font-display font-black text-[12px] leading-tight truncate">{b.title}</p>
-                                <p className="text-[10px] opacity-90 truncate mt-0.5">Room {b.roomId}</p>
-                              </div>
-                              <span className="font-mono text-[10px] font-bold leading-none">{b.startTime}-{b.endTime}</span>
-                            </motion.div>
-                          );
-                        })}
+                            return (
+                              <motion.div
+                                key={b.id}
+                                layoutId={`card-week-${b.id}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (associatedRoom) onRoomSelect(associatedRoom);
+                                }}
+                                onMouseMove={(e) => handleMouseMove(e, b)}
+                                onMouseLeave={handleMouseLeave}
+                                style={{ top: `${top}px`, height: `${height}px`, left: pos.left, width: pos.width }}
+                                className={`absolute ${getRoomColorClasses(b.roomId, "card")} rounded-xl p-2.5 shadow-sm flex flex-col justify-between border transition-all hover:shadow-md cursor-pointer overflow-hidden z-10`}
+                              >
+                                <div className="overflow-hidden">
+                                  <p className="font-display font-black text-[12px] leading-tight truncate">{b.title}</p>
+                                  <p className="text-[10px] opacity-90 truncate mt-0.5">{associatedRoom?.name || `Room ${b.roomId}`}</p>
+                                </div>
+                                <span className="font-mono text-[10px] font-bold leading-none">{b.startTime}-{b.endTime}</span>
+                              </motion.div>
+                            );
+                          });
+                        })()}
                       </div>
                     );
                   })}
@@ -551,7 +661,7 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
                   const isToday = cellFormattedDate === formatDateKey(realNow);
 
                   // Bookings happening on this calendar date
-                  const cellBookings = bookings.filter((b) => b.date === cellFormattedDate && b.status === "CONFIRMED");
+                  const cellBookings = buildingBookings.filter((b) => b.date === cellFormattedDate && b.status === "CONFIRMED");
 
                   calendarCells.push(
                     <div
@@ -578,11 +688,14 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
                         {cellBookings.slice(0, 3).map((b) => (
                           <div
                             key={b.id}
-                            onClick={() => {
-                              const r = rooms.find((rm) => rm.id === b.roomId);
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const r = buildingRooms.find((rm) => rm.id === b.roomId);
                               if (r) onRoomSelect(r);
                             }}
-                            className={`px-1.5 py-0.5 rounded-sm border-l-2 text-[11px] font-bold truncate cursor-pointer select-none ${getRoomColorClasses(b.roomId, "pill")}`}
+                            onMouseMove={(e) => handleMouseMove(e, b)}
+                            onMouseLeave={handleMouseLeave}
+                            className={`px-1.5 py-0.5 rounded-md border text-[11px] font-bold truncate cursor-pointer select-none ${getRoomColorClasses(b.roomId, "pill")}`}
                             title={`${b.title} (Room ${b.roomId} | ${b.startTime}-${b.endTime})`}
                           >
                             {b.startTime} • {b.title}
@@ -603,47 +716,38 @@ export default function DashboardView({ rooms, bookings, onRoomSelect, onInstant
         )}
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 select-none">
-        <div className="p-4 bg-surface-container rounded-2xl flex items-center gap-4 border border-outline-variant/30">
-          <div className="w-11 h-11 rounded-full bg-primary/15 flex items-center justify-center text-primary">
-            <TrendingUp className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[13px] font-bold text-on-surface-variant/80 uppercase tracking-wider">{t("dbOccupancyRate")}</p>
-            <p className="font-display font-black text-lg text-primary">74.2%</p>
-          </div>
-        </div>
-
-        <div className="p-4 bg-surface-container rounded-2xl flex items-center gap-4 border border-outline-variant/30">
-          <div className="w-11 h-11 rounded-full bg-secondary/15 flex items-center justify-center text-secondary">
-            <Clock className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[13px] font-bold text-on-surface-variant/80 uppercase tracking-wider">{t("dbAvgDuration")}</p>
-            <p className="font-display font-black text-lg text-secondary">45m</p>
-          </div>
-        </div>
-
-        <div className="p-4 bg-surface-container rounded-2xl flex items-center gap-4 border border-outline-variant/30">
-          <div className="w-11 h-11 rounded-full bg-orange-600/15 flex items-center justify-center text-orange-600">
-            <Users className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[13px] font-bold text-on-surface-variant/80 uppercase tracking-wider">{t("dbActiveUsers")}</p>
-            <p className="font-display font-black text-lg text-orange-700">128</p>
-          </div>
-        </div>
-
-        <div className="p-4 bg-surface-container rounded-2xl flex items-center gap-4 border border-outline-variant/30">
-          <div className="w-11 h-11 rounded-full bg-primary/15 flex items-center justify-center text-primary">
-            <Flame className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[13px] font-bold text-on-surface-variant/80 uppercase tracking-wider">{t("dbMostPopular")}</p>
-            <p className="font-display font-black text-lg text-primary">Room 301</p>
-          </div>
-        </div>
-      </div>
+      {/* Hover Tooltip */}
+      <AnimatePresence>
+        {hoveredBooking && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            className="fixed z-[100] p-4 rounded-2xl shadow-xl border border-outline-variant pointer-events-none w-64 backdrop-blur-2xl bg-white/95"
+            style={{ 
+              left: Math.min(hoveredBooking.x, window.innerWidth - 270), 
+              top: Math.min(hoveredBooking.y, window.innerHeight - 150)
+            }}
+          >
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider truncate max-w-[150px] ${getRoomColorClasses(hoveredBooking.booking.roomId, "pill")}`}>
+                  {buildingRooms.find(r => r.id === hoveredBooking.booking.roomId)?.name || `Room ${hoveredBooking.booking.roomId}`}
+                </span>
+                <span className="text-[10px] font-bold text-on-surface-variant">
+                  {hoveredBooking.booking.date}
+                </span>
+              </div>
+              <h3 className="font-display font-black text-sm leading-tight text-on-surface">{hoveredBooking.booking.title}</h3>
+              <div className="flex flex-col gap-1 mt-1">
+                <p className="text-[11px] text-on-surface-variant flex items-center gap-2 font-medium"><Clock className="w-3.5 h-3.5 text-primary"/> {hoveredBooking.booking.startTime} - {hoveredBooking.booking.endTime}</p>
+                <p className="text-[11px] text-on-surface-variant flex items-center gap-2 font-medium"><Users className="w-3.5 h-3.5 text-primary"/> {hoveredBooking.booking.organizer}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Room } from "../types";
-import { Users, Wifi, Tv, Video, Edit3, ArrowRight } from "lucide-react";
+import { Room, BuildingId } from "../types";
+import { Users, Wifi, Tv, Video, Edit3, ArrowRight, Wrench } from "lucide-react";
 import { Language, translations } from "../locales";
 import { motion } from "motion/react";
 
@@ -10,28 +10,39 @@ interface RoomListViewProps {
   onRoomSelect: (room: Room) => void;
   onQuickBook: (room: Room) => void;
   lang: Language;
+  selectedBuilding: BuildingId;
 }
 
-type FloorFilter = "All Rooms" | "Floor 1" | "Floor 2" | "Floor 3";
+type CapFilter = "all" | "small" | "medium" | "large";
 
-export default function RoomListView({ rooms, searchQuery, onRoomSelect, onQuickBook, lang }: RoomListViewProps) {
-  const [activeFloor, setActiveFloor] = useState<FloorFilter>("All Rooms");
+export default function RoomListView({ rooms, searchQuery, onRoomSelect, onQuickBook, lang, selectedBuilding }: RoomListViewProps) {
+  const [activeFloor, setActiveFloor] = useState<number | "all">("all");
+  const [activeCap, setActiveCap] = useState<CapFilter>("all");
   const t = (key: keyof typeof translations.th) => translations[lang][key] || key;
 
+  // Room list always scopes to the building selected in the sidebar, so
+  // rooms/colors from the other company never mix into this page.
+  const buildingRooms = rooms.filter((room) => room.buildingId === selectedBuilding);
+
+  // Extract unique floors dynamically from the building-scoped rooms
+  const uniqueFloors = Array.from(new Set(buildingRooms.map((r) => r.floor))).sort((a, b) => a - b);
+
   // Filters
-  const filteredRooms = rooms.filter((room) => {
+  const filteredRooms = buildingRooms.filter((room) => {
     const matchesSearch =
       room.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       room.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
       room.location.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesFloor =
-      activeFloor === "All Rooms" ||
-      (activeFloor === "Floor 1" && room.floor === 1) ||
-      (activeFloor === "Floor 2" && room.floor === 2) ||
-      (activeFloor === "Floor 3" && room.floor === 3);
+    const matchesFloor = activeFloor === "all" || room.floor === activeFloor;
 
-    return matchesSearch && matchesFloor;
+    const matchesCap =
+      activeCap === "all" ||
+      (activeCap === "small" && room.capacity < 6) ||
+      (activeCap === "medium" && room.capacity >= 6 && room.capacity <= 12) ||
+      (activeCap === "large" && room.capacity > 12);
+
+    return matchesSearch && matchesFloor && matchesCap;
   });
 
   // Group by floor for header categories
@@ -50,36 +61,62 @@ export default function RoomListView({ rooms, searchQuery, onRoomSelect, onQuick
     return null;
   };
 
-  const getFloorLabel = (floor: FloorFilter) => {
-    if (floor === "All Rooms") return t("rlAllRooms");
-    if (floor === "Floor 1") return t("rlFloor1");
-    if (floor === "Floor 2") return t("rlFloor2");
-    return t("rlFloor3");
-  };
-
   return (
     <div className="flex-grow flex flex-col overflow-y-auto custom-scrollbar">
-      {/* Floor Filter Tabs Subheader */}
-      <div className="bg-white/60 backdrop-blur-md px-8 py-3.5 border-b border-outline-variant/30 flex items-center justify-between sticky top-0 z-20 select-none">
-        <div className="text-xs font-semibold text-on-surface-variant max-w-[200px] truncate md:max-w-none">
+      {/* Filter Tabs Subheader */}
+      <div className="bg-white/60 backdrop-blur-md px-8 py-3.5 border-b border-outline-variant/30 flex flex-col sm:flex-row sm:items-center justify-between sticky top-0 z-20 gap-3 select-none">
+        <div className="text-sm font-normal text-on-surface-variant">
           {t("rlSub")}
         </div>
 
-        {/* Filters */}
-        <div className="flex items-center gap-1 bg-surface-container-high p-1 rounded-xl border border-outline-variant/30 shrink-0">
-          {(["All Rooms", "Floor 1", "Floor 2", "Floor 3"] as FloorFilter[]).map((tab) => (
+        {/* Dynamic Filters Wrapper */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Dynamic Floor Selector */}
+          <div className="flex items-center gap-1 bg-surface-container-high p-1 rounded-xl border border-outline-variant/30 shrink-0">
             <button
-              key={tab}
-              onClick={() => setActiveFloor(tab)}
+              onClick={() => setActiveFloor("all")}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
-                activeFloor === tab
+                activeFloor === "all"
                   ? "bg-white text-primary shadow-xs"
                   : "text-on-surface-variant/80 hover:text-primary"
               }`}
             >
-              {getFloorLabel(tab)}
+              {t("rlAllRooms")}
             </button>
-          ))}
+            {uniqueFloors.map((floor) => (
+              <button
+                key={floor}
+                onClick={() => setActiveFloor(floor)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  activeFloor === floor
+                    ? "bg-white text-primary shadow-xs"
+                    : "text-on-surface-variant/80 hover:text-primary"
+                }`}
+              >
+                {lang === "th" ? `ชั้น ${floor}` : `Floor ${floor}`}
+              </button>
+            ))}
+          </div>
+
+          {/* Capacity Range Selector */}
+          <div className="flex items-center gap-1 bg-surface-container-high p-1 rounded-xl border border-outline-variant/30 shrink-0">
+            {(["all", "small", "medium", "large"] as CapFilter[]).map((cap) => (
+              <button
+                key={cap}
+                onClick={() => setActiveCap(cap)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  activeCap === cap
+                    ? "bg-white text-primary shadow-xs"
+                    : "text-on-surface-variant/80 hover:text-primary"
+                }`}
+              >
+                {cap === "all" && (lang === "th" ? "ทุกขนาด" : "All Sizes")}
+                {cap === "small" && (lang === "th" ? "เล็ก (<6)" : "Small (<6)")}
+                {cap === "medium" && (lang === "th" ? "กลาง (6-12)" : "Medium (6-12)")}
+                {cap === "large" && (lang === "th" ? "ใหญ่ (12+)" : "Large (12+)")}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -90,7 +127,8 @@ export default function RoomListView({ rooms, searchQuery, onRoomSelect, onQuick
             <p className="text-sm font-semibold text-on-surface-variant">{t("rlNoRooms")}</p>
             <button
               onClick={() => {
-                setActiveFloor("All Rooms");
+                setActiveFloor("all");
+                setActiveCap("all");
               }}
               className="mt-4 px-5 py-2 bg-primary text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer hover:bg-primary-container"
             >
@@ -133,25 +171,31 @@ export default function RoomListView({ rooms, searchQuery, onRoomSelect, onQuick
                         <div className="absolute top-3 left-3 bg-primary/95 text-white px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase">
                           {t("rlFloor")} {room.floor}
                         </div>
+                        {room.status === "MAINTENANCE" && (
+                          <div className="absolute top-3 right-3 bg-orange-600/95 text-white px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase flex items-center gap-1">
+                            <Wrench className="w-3 h-3" />
+                            {t("rlMaintenanceBadge")}
+                          </div>
+                        )}
                       </div>
 
                       {/* Content Card Info */}
                       <div className="p-5 flex-grow flex flex-col justify-between">
                         <div className="select-all">
                           <div className="flex items-center gap-2 mb-1.5">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-secondary px-2 py-0.5 rounded-md bg-secondary/10">
+                            <span className="text-[10px] font-medium uppercase tracking-wider text-secondary px-2 py-0.5 rounded-md bg-secondary/10">
                               {room.type}
                             </span>
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-on-surface-variant/80">
+                            <span className="text-[9px] font-medium uppercase tracking-wider text-on-surface-variant/80">
                               {room.tier}
                             </span>
                           </div>
-                          
-                          <h4 className="font-display font-black text-base text-on-surface leading-tight mb-1">
+
+                          <h4 className="font-display font-semibold text-base text-on-surface leading-tight mb-1">
                             {room.name}
                           </h4>
-                          
-                          <p className="text-[11px] font-semibold text-on-surface-variant/80 truncate">
+
+                          <p className="text-[11px] font-normal text-on-surface-variant/80 truncate">
                             {room.location.split("•")[0].trim()}
                           </p>
                         </div>
@@ -160,7 +204,7 @@ export default function RoomListView({ rooms, searchQuery, onRoomSelect, onQuick
                         <div className="mt-5 pt-4 border-t border-outline-variant/40 flex items-center justify-between gap-4 select-none">
                           <div className="flex items-center gap-1 text-on-surface-variant">
                             <Users className="w-4 h-4 text-primary shrink-0" />
-                            <span className="font-sans font-bold text-xs">
+                            <span className="font-sans font-normal text-xs">
                               {room.capacity} {t("rlCapacity")}
                             </span>
                           </div>
@@ -177,14 +221,15 @@ export default function RoomListView({ rooms, searchQuery, onRoomSelect, onQuick
                       <div className="px-5 pb-5 pt-1 grid grid-cols-2 gap-2.5">
                         <button
                           onClick={() => onQuickBook(room)}
-                          className="bg-primary-container text-white py-2.5 rounded-xl text-xs font-bold hover:bg-primary transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                          disabled={room.status === "MAINTENANCE"}
+                          className="bg-primary text-white py-2.5 rounded-xl text-xs font-bold hover:bg-primary/90 hover:scale-[1.02] transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm hover:shadow-md disabled:bg-outline-variant disabled:text-on-surface-variant/60 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
                         >
                           {t("rlQuickBook")}
                           <ArrowRight className="w-3.5 h-3.5 text-white" />
                         </button>
                         <button
                           onClick={() => onRoomSelect(room)}
-                          className="border border-outline-variant hover:bg-surface-variant/30 text-on-surface-variant/90 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                          className="border border-primary/25 hover:bg-primary/5 text-primary py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer"
                         >
                           {t("rlDetails")}
                         </button>

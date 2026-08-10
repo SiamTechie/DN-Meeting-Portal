@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Mail, Lock, User as UserIcon } from 'lucide-react';
+import { X, Mail, Lock, User as UserIcon, CheckCircle } from 'lucide-react';
 import { loginUser, registerUser } from '../services/auth';
 import { User } from '../types';
 import { Language, translations } from '../locales';
@@ -19,6 +19,18 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, lang }: Lo
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isRegisterSuccess, setIsRegisterSuccess] = useState(false);
+  const [registeredUser, setRegisteredUser] = useState<User | null>(null);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setIsRegisterSuccess(false);
+      setError("");
+      setEmail("");
+      setPassword("");
+      setName("");
+    }
+  }, [isOpen]);
 
   const t = (key: string) => {
     // Basic translations since we might not have all keys in locales
@@ -47,8 +59,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, lang }: Lo
       } else {
         if (!name.trim()) throw new Error("Name is required");
         const user = await registerUser(email, password, name);
-        onLoginSuccess(user);
-        onClose();
+        setRegisteredUser(user);
+        setIsRegisterSuccess(true);
       }
     } catch (err: any) {
       setError(err.message || "An error occurred");
@@ -58,6 +70,55 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, lang }: Lo
   };
 
   if (!isOpen) return null;
+
+  if (isRegisterSuccess) {
+    return (
+      <AnimatePresence>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => {
+              if (registeredUser) onLoginSuccess(registeredUser);
+              onClose();
+              setIsRegisterSuccess(false);
+            }}
+            className="absolute inset-0 bg-[#000000]/40 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="relative w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border border-outline-variant/50 p-6 text-center space-y-4"
+          >
+            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-sm">
+              <CheckCircle className="w-8 h-8" />
+            </div>
+            <h2 className="text-xl font-display font-black text-on-surface">
+              {lang === "th" ? "ลงทะเบียนสำเร็จ!" : "Registration Successful!"}
+            </h2>
+            <p className="text-sm text-on-surface-variant leading-relaxed">
+              {lang === "th" 
+                ? `ระบบได้ส่งอีเมลยืนยันการใช้งานไปยัง ${email} เรียบร้อยแล้ว กรุณาตรวจสอบในกล่องจดหมายของคุณ (หากไม่พบอีเมล กรุณาตรวจสอบเพิ่มเติมในโฟลเดอร์ จดหมายขยะ/ถังขยะ (Spam/Junk))`
+                : `We have sent a verification email to ${email}. Please check your inbox. (If you cannot find it, please check your Spam/Junk folder.)`
+              }
+            </p>
+            <button
+              onClick={() => {
+                if (registeredUser) onLoginSuccess(registeredUser);
+                onClose();
+                setIsRegisterSuccess(false);
+              }}
+              className="w-full bg-primary hover:bg-primary/95 text-white font-sans text-sm font-bold py-3 px-4 rounded-xl shadow-md cursor-pointer transition-all hover:scale-[1.01]"
+            >
+              {lang === "th" ? "ตกลง" : "OK"}
+            </button>
+          </motion.div>
+        </div>
+      </AnimatePresence>
+    );
+  }
 
   return (
     <AnimatePresence>

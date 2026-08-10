@@ -8,6 +8,7 @@ import { ForgotPassword } from './pages/ForgotPassword.tsx';
 import { Profile } from './pages/Profile.tsx';
 import { UserManagement } from './pages/admin/UserManagement.tsx';
 import { ProtectedRoute } from './components/ProtectedRoute.tsx';
+import { AuthAction } from './pages/AuthAction.tsx';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(
@@ -17,6 +18,7 @@ createRoot(document.getElementById('root')!).render(
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/auth/action" element={<AuthAction />} />
           
           <Route path="/profile" element={
             <ProtectedRoute>

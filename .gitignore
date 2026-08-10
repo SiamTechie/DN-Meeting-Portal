@@ -6,3 +6,10 @@ coverage/
 *.log
 .env*
 !.env.example
+.firebase/
+.gemini/
+.claude/
+.cursor/
+.codex/
+.impeccable/
+

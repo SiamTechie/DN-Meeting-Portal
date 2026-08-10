@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Room, Booking, ViewTab, User } from "./types";
+import { Room, Booking, ViewTab, User, BuildingId } from "./types";
 import { dbService } from "./services/db";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
@@ -8,6 +8,7 @@ import RoomListView from "./components/RoomListView";
 import RoomDetailView from "./components/RoomDetailView";
 import BookingFormView from "./components/BookingFormView";
 import MyBookingsView from "./components/MyBookingsView";
+import UserManualView from "./components/UserManualView";
 import AdminView from "./components/AdminView";
 import KioskView from "./components/KioskView";
 import LoginModal from "./components/LoginModal";
@@ -16,6 +17,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { auth } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { fetchUserProfile } from "./services/auth";
+import { DEFAULT_BUILDING_ID } from "./buildings";
 
 export default function App() {
   // Global React States
@@ -29,20 +31,29 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
 
-  // Localization State
+  // Localization State - Enforced to Thai
   const [lang, setLang] = useState<Language>("th");
-  
+
+  // Building State - which company/building the user is currently viewing.
+  // Persisted so returning users keep their last selected building + theme.
+  const [selectedBuilding, setSelectedBuilding] = useState<BuildingId>(() => {
+    const stored = localStorage.getItem("dn_center_building");
+    return stored === "dn-center" || stored === "health-up" ? stored : DEFAULT_BUILDING_ID;
+  });
+
   // Detail selection state helpers
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [initialStartTime, setInitialStartTime] = useState("10:00");
 
   // Load real-time data from Firestore
   useEffect(() => {
-    // Keep lang locally
-    const cachedLang = localStorage.getItem("dn_center_lang");
-    if (cachedLang === "th" || cachedLang === "en") {
-      setLang(cachedLang as Language);
-    }
+    // Force language to Thai globally
+    setLang("th");
+    localStorage.setItem("dn_center_lang", "th");
+
+    // One-time backfill: ensure rooms created before the multi-building
+    // feature existed have a buildingId (defaults to "dn-center").
+    dbService.migrateRoomsAddBuildingId();
 
     // Subscribe to Firestore collections
     const unsubRooms = dbService.subscribeToRooms((data) => setRooms(data));
@@ -86,10 +97,55 @@ export default function App() {
     }
   };
 
+  const handleUpdateUser = async (userId: string, updatedData: Partial<User>, newPassword?: string) => {
+    const existingUser = users.find((u) => u.id === userId);
+    if (!existingUser) return;
+    
+    const updatedUser = { ...existingUser, ...updatedData };
+    await dbService.saveUser(updatedUser);
+
+    if (newPassword && newPassword.trim() !== "") {
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (token) {
+          await fetch('/adminUpdateUser', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              uid: userId,
+              password: newPassword
+            })
+          });
+        }
+      } catch (err) {
+        console.error("Failed to update password:", err);
+      }
+    }
+  };
+
   const handleSetLang = (newLang: Language) => {
     setLang(newLang);
     localStorage.setItem("dn_center_lang", newLang);
   };
+
+  const handleSetBuilding = (buildingId: BuildingId) => {
+    setSelectedBuilding(buildingId);
+    localStorage.setItem("dn_center_building", buildingId);
+  };
+
+  // Apply the selected building's brand theme to the whole app by toggling
+  // a `data-brand` attribute on <html>, which CSS variable overrides in
+  // index.css key off of.
+  useEffect(() => {
+    if (selectedBuilding === DEFAULT_BUILDING_ID) {
+      document.documentElement.removeAttribute("data-brand");
+    } else {
+      document.documentElement.setAttribute("data-brand", selectedBuilding);
+    }
+  }, [selectedBuilding]);
 
   // State Triggers (Realtime synced via Firestore)
   const handleAddRoom = async (newRoom: Room) => {
@@ -166,7 +222,11 @@ export default function App() {
       setIsLoginOpen(true);
       return;
     }
-    setSelectedRoom(rooms[0] || null);
+    // Default room must belong to the currently selected building, so the
+    // "New Booking" sidebar shortcut never pre-selects a room from the
+    // other company.
+    const buildingRooms = rooms.filter((r) => r.buildingId === selectedBuilding);
+    setSelectedRoom(buildingRooms[0] || null);
     setInitialStartTime("10:00");
     setActiveTab("booking-form");
   };
@@ -212,6 +272,8 @@ export default function App() {
         onNewBookingClick={handleNewBookingClick}
         lang={lang}
         currentUser={currentUser}
+        selectedBuilding={selectedBuilding}
+        onSelectBuilding={handleSetBuilding}
       />
 
       {/* Main Panel Content Frame */}
@@ -249,6 +311,7 @@ export default function App() {
                   onRoomSelect={handleRoomSelect}
                   onInstantBook={handleInstantBook}
                   lang={lang}
+                  selectedBuilding={selectedBuilding}
                 />
               )}
 
@@ -259,6 +322,7 @@ export default function App() {
                   onRoomSelect={handleRoomSelect}
                   onQuickBook={handleQuickBook}
                   lang={lang}
+                  selectedBuilding={selectedBuilding}
                 />
               )}
 
@@ -282,6 +346,8 @@ export default function App() {
                   onCancel={() => setActiveTab("dashboard")}
                   lang={lang}
                   users={users}
+                  currentUser={currentUser}
+                  selectedBuilding={selectedBuilding}
                 />
               )}
 
@@ -292,10 +358,12 @@ export default function App() {
                   onCancelBooking={handleCancelBooking}
                   onRoomSelect={handleRoomSelectById}
                   lang={lang}
+                  currentUser={currentUser}
+                  selectedBuilding={selectedBuilding}
                 />
               )}
 
-              {activeTab === "admin" && (
+               {activeTab === "admin" && (
                 <AdminView
                   rooms={rooms}
                   bookings={bookings}
@@ -306,9 +374,15 @@ export default function App() {
                   onCancelBooking={handleCancelBooking}
                   onAddUser={handleAddUser}
                   onDeleteUser={handleDeleteUser}
+                  onUpdateUser={handleUpdateUser}
                   onSeedDatabase={handleSeedDatabase}
                   lang={lang}
+                  selectedBuilding={selectedBuilding}
                 />
+              )}
+
+              {activeTab === "user-manual" && (
+                <UserManualView lang={lang} />
               )}
 
               {activeTab === "kiosk" && (
@@ -317,6 +391,7 @@ export default function App() {
                   bookings={bookings}
                   onInstantBook={handleInstantBook}
                   lang={lang}
+                  selectedBuilding={selectedBuilding}
                 />
               )}
             </motion.div>

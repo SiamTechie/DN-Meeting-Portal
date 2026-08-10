@@ -2,25 +2,55 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Noto Sans Thai", "Roboto", sans-serif;
-  --font-display: "Noto Sans Thai", "Roboto", sans-serif;
+  --font-sans: "Roboto", "Noto Sans Thai", sans-serif;
+  --font-display: "Roboto", "Noto Sans Thai", sans-serif;
   --font-mono: "Roboto", monospace;
   
-  --color-primary: #6310a3;
-  --color-primary-container: #f3e8ff;
+  --color-primary: #55108a;
+  --color-primary-container: #eee0fb;
   --color-on-primary-container: #2c004d;
-  --color-secondary-container: #faf5ff;
-  --color-on-secondary-container: #6310a3;
-  --color-secondary: #a884c4;
-  --color-surface-container-low: #fdfdfd;
-  --color-surface-container-lowest: #ffffff;
-  --color-surface-container-high: #e7e5e4;
-  --color-outline-variant: #e7e5e4;
+  --color-secondary-container: #f5eefb;
+  --color-on-secondary-container: #55108a;
+  --color-secondary: #9973b3;
+  --color-surface-container-low: #faf9f7;
+  --color-surface-container-lowest: #fefdfc;
+  --color-surface-container-high: #e9e7e4;
+  --color-outline-variant: #e7e5e2;
   --color-on-surface-variant: #78716c;
   --color-on-surface: #1c1917;
-  --color-background: #F5F5F4;
-  --color-surface: #ffffff;
+  --color-background: #f1f0ee;
+  --color-surface: #fbfaf9;
   --color-error: #ef4444;
+}
+
+/* Health Up brand theme override.
+   Toggled via `data-brand="health-up"` on the <html> element (see App.tsx).
+   Because all `bg-primary`/`text-primary`/etc. utility classes resolve to
+   these same CSS variables, switching the attribute re-themes the whole app
+   without touching component code.
+   Colors are a touch deeper/less saturated than the raw brand palette to
+   stay easy on the eyes, with a hint of mint threaded through secondary
+   accents (badges, borders) rather than dominating the whole UI. */
+[data-brand="health-up"] {
+  --color-primary: #de5d1e;
+  --color-primary-container: #f9e2d6;
+  --color-on-primary-container: #7a2e0c;
+  --color-secondary-container: #dcf5ef;
+  --color-on-secondary-container: #0b4f45;
+  --color-secondary: #14a38f;
+}
+
+/* Subtle mint thread for Health Up: card borders pick up a faint teal tint
+   instead of plain gray, without introducing a new component class. */
+[data-brand="health-up"] .border-outline-variant,
+[data-brand="health-up"] .border-outline-variant\/80,
+[data-brand="health-up"] .border-outline-variant\/60,
+[data-brand="health-up"] .border-outline-variant\/40 {
+  border-color: color-mix(in srgb, #14a38f 16%, var(--color-outline-variant)) !important;
+}
+
+html {
+  font-size: 17px;
 }
 
 body {
@@ -28,6 +58,9 @@ body {
   background-color: var(--color-background);
   color: var(--color-on-surface);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 16px;
+  line-height: 1.6;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -38,11 +71,11 @@ body {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(99, 16, 163, 0.1);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   border-radius: 10px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 16, 163, 0.25);
+  background: color-mix(in srgb, var(--color-primary) 25%, transparent);
 }
 
 /* Crisp Clean Light Card Overrides */
@@ -50,8 +83,8 @@ body {
 .bg-surface,
 .bg-\[\#FAF9FC\],
 .bg-\[\#FCFCFF\] {
-  background-color: #ffffff !important;
-  border-color: #e7e5e4 !important;
+  background-color: var(--color-surface) !important;
+  border-color: var(--color-outline-variant) !important;
   color: #1c1917 !important;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04) !important;
 }
@@ -61,7 +94,7 @@ body {
 .border-outline-variant\/80,
 .border-outline-variant\/60,
 .border-outline-variant\/40 {
-  border-color: #e7e5e4 !important;
+  border-color: var(--color-outline-variant) !important;
 }
 
 /* Inputs styling inside cards */
@@ -78,9 +111,9 @@ input[type="text"]:focus,
 input[type="date"]:focus,
 input[type="time"]:focus,
 select:focus {
-  border-color: #6310a3 !important;
+  border-color: var(--color-primary) !important;
   outline: none !important;
-  box-shadow: 0 0 0 2px rgba(99, 16, 163, 0.15) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent) !important;
 }
 
 /* Fix option elements in dropdowns */
@@ -95,7 +128,7 @@ select option {
 }
 
 .text-primary {
-  color: #6310a3 !important;
+  color: var(--color-primary) !important;
 }
 
 /* Custom class for additional frosted cards */
@@ -104,5 +137,17 @@ select option {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* Reset global input overrides for nested inputs */
+input[type="text"].input-reset {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+input[type="text"].input-reset:focus {
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
